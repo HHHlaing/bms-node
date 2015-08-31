@@ -1,11 +1,14 @@
 import time
 import getopt
+import sys
+
 from collections import OrderedDict
 from pyndn import Name
-from pyndn import Face
+from pyndn import ThreadsafeFace
 from pyndn import Data
 from pyndn.security import KeyChain
 from pyndn.util.common import Common
+
 from config_split import BoostInfoParser
 
 class Aggregation(object):
@@ -14,7 +17,7 @@ class Aggregation(object):
 
 	def _doRefresh(self, aggregationType, *dataList):
 		if len(dataList) == 0:
-			assert False, 'DataList is None'
+			assert failedse, 'DataList is None'
 		if aggregationType == 'avg':
 			return self.getAvg(dataList)
 		elif aggregation == 'min':
@@ -40,25 +43,27 @@ class BmsNode(object):
 		self.lastRefreshTime = int(time.time())
 		self._keyChain = None
 		self._certificateName = None
-		self._responseCount = None
-		self._callbackCount = None
+
 		self._tempName = None
 		self._tempData = None
 		self._dataQueue = []
 		self.aggregation = Aggregation()
+
+		#self._face = ThreadsafeFace()
 
 	def setConfiguration(self, fileName):
 		self.boost = BoostInfoParser()
 		self.boost.read(fileName)
 
 	def doRefresh(self):
-		time = self.lastRefreshTime
 		self.lastRefreshTime = int(time.time())
-		for i in range(len(self.boost.subtrees['data'].subtrees))
-			dataType = self.boost.getProducerInterval(self.boost.subtrees['data'].subtrees.items()[i][0])
-			refreshInterval = self.boost.getProducerInterval(self.boost.subtrees['data'].subtrees.items()[i][1])
-			for j in range(len(refreshInterval)):
-				self._doRefresh(time, refreshInterval.items()[j][1], dataType, refreshInterval.items()[j][0])
+		# For each type of data, we refresh each type of aggregation according to the interval in the configuration
+		for i in range(len(self.boost._root.subtrees['data'].subtrees)):
+			dataType = self.boost._root.subtrees['data'].subtrees.keys()[i]
+			aggregationTypes = self.boost._root.subtrees['data'].subtrees.items()[i][1]
+			print(aggregationTypes)
+			#for j in range(len(refreshInterval)):
+			#	self._doRefresh(time, refreshInterval.items()[j][1], dataType, refreshInterval.items()[j][0])
 
 	def _doRefresh(self, time, producerInterval, dataType, aggregationType):
 		now = self.lastRefreshTime
@@ -73,7 +78,9 @@ class BmsNode(object):
 				self._tempData = None
 			elif aggregation == "raw":
 				# not finish
-			else: #aggregation in ["avg", "min", "max"]:
+				pass
+			else: 
+				#aggregation in ["avg", "min", "max"]:
 				dataList = []
 				for i in range(len(self.boost.subtrees['children'].subtrees)):
 					string = self.boost.subtrees['children'].subtrees.items()[i][0]
@@ -101,7 +108,6 @@ class BmsNode(object):
 		self._certificateName = self._keyChain.getDefaultCertificateName()
 		face.setCommandSigningInfo(self._keyChain, self._certificateName)
 
-		self._responseCount = 0
 		prefix = self.boost.getName()
 		face.registerPrefix(prefix, onInterest, onRegisterFailed)
 
@@ -127,7 +133,6 @@ class BmsNode(object):
 		face.shutdown()
 
 	def onInterest(self, prefix, interest, face, interestFilterId, filter):
-		self._responseCount += 1
 		name = interest.getName()
 
 		for i in range(len(self._dataQueue)):
@@ -141,18 +146,14 @@ class BmsNode(object):
 		face.putData(data)
 
 	def onRegisterFailed(self, prefix):
-		self._responseCount += 1
-
 		raise RuntimeError("Register failed for prefix", prefix.toUri())
 
 	def onData(self, interest, data):
-		self._callbackCount += 1
 		string = data.getContent().toRawStr()
 		self._tempData = int(string)
 
 	def onTimeout(self, interest):
-		self._callbackCount += 1
-
+		return
 
 
 def main():
@@ -166,7 +167,7 @@ def main():
 		if o == "--conf":
 			bNode = BmsNode()
 			bNode.setConfiguration(a)
-			print
+			bNode.doRefresh()
 		else:
 			assert False, "unhandled option"
 

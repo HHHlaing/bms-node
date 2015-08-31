@@ -157,6 +157,7 @@ class BoostInfoParser(object):
 
 	def getProducerInterval(self, dataType, aggregationType = None):
 		if aggregationType == None:
+			print(dataType.subtrees["avg"].subtrees['producer_interval'].value)
 			if not self._root.subtrees['data'].subtrees[dataType].subtrees.get(aggregationType) == None:
 				return self._root.subtrees['data'].subtrees[dataType].subtrees[aggregationType].value
 			else:
@@ -164,8 +165,9 @@ class BoostInfoParser(object):
 		else:
 			result = OrderedDict()
 			for i in range(len(self._root.subtrees['data'].subtrees[dataType].subtrees)):
-				string = self._root.subtrees['data'].subtrees[dataType].subtrees.items[i][0]
-				result.append(string) =  self._root.subtrees['data'].subtrees[dataType].subtrees[string].value
+				string = self._root.subtrees['data'].subtrees[dataType].subtrees.items()[i][0]
+				result.append(string)
+				# =  self._root.subtrees['data'].subtrees[dataType].subtrees[string].value
 			return result
 
 
