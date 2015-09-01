@@ -166,9 +166,40 @@ class BoostInfoParser(object):
 			result = OrderedDict()
 			for i in range(len(self._root.subtrees['data'].subtrees[dataType].subtrees)):
 				string = self._root.subtrees['data'].subtrees[dataType].subtrees.items()[i][0]
+				print(string)
 				result.append(string)
 				# =  self._root.subtrees['data'].subtrees[dataType].subtrees[string].value
 			return result
 
+	# TODO: Generalized getter function?
 
+	# param @node Conf tree node reflecting the aggregation type, for example "max"
+	# return OrderedDict that contains the params (for example, "producing_interval") 
+	#        for all aggregations to be generated for given data type.
+	# NOTE: This expects the conf tree after avg {} to be flat
+	def getProducingParamsForAggregationType(self, node):
+		result = OrderedDict()
+		for i in range(len(node.subtrees)):
+			tempDict = dict()
+			for item in node.subtrees.items()[i][1].subtrees:
+				tempDict[item] = node.subtrees.items()[i][1].subtrees[item].value
+			result[node.subtrees.items()[i][0]] = tempDict
+		return result
 
+	def getNodePrefix(self):
+		return self._root.subtrees['node_prefix'].value
+
+	def getDataNode(self):
+		return self._root.subtrees['data']
+
+	def getChildrenNode(self):
+		return self._root.subtrees['children']
+
+if __name__ == "__main__":
+	boost = BoostInfoParser()
+	boost.read("example.conf")
+
+	producingDict = boost.getProducingParamsForAggregationType(boost._root.subtrees['data'].subtrees.items()[0][1])
+	print(producingDict)
+	print(boost.getNodePrefix())
+	#boost.getProducerInterval(boost._root.subtrees['data'].subtrees.items()[0][1])

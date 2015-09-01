@@ -1,21 +1,29 @@
 import time
 import getopt
 import sys
+import logging
 
 from collections import OrderedDict
-from pyndn import Name
-from pyndn import ThreadsafeFace
-from pyndn import Data
+from pyndn import Name, Data, Interest
+from pyndn.threadsafe_face import ThreadsafeFace
+
 from pyndn.security import KeyChain
 from pyndn.util.common import Common
 
+try:
+	import asyncio
+except ImportError:
+	import trollius as asyncio
+
 from config_split import BoostInfoParser
+
+DEFAULT_LIFETIME = 6000
 
 class Aggregation(object):
 	def __init__(self):
 		pass
 
-	def _doRefresh(self, aggregationType, *dataList):
+	def getAggregation(self, aggregationType, *dataList):
 		if len(dataList) == 0:
 			assert failedse, 'DataList is None'
 		if aggregationType == 'avg':
@@ -25,7 +33,7 @@ class Aggregation(object):
 		elif aggregation == 'max':
 			return self.getMax(dataList)
 		else:
-			assert False, 'Not be implemented'
+			assert False, 'Not implemented'
 
 	def getAvg(self, *dataList):
 		return reduce(lambda x, y: x, x + y, dataList) / float(len(dataList))
@@ -49,21 +57,67 @@ class BmsNode(object):
 		self._dataQueue = []
 		self.aggregation = Aggregation()
 
-		#self._face = ThreadsafeFace()
-
 	def setConfiguration(self, fileName):
 		self.boost = BoostInfoParser()
 		self.boost.read(fileName)
 
-	def doRefresh(self):
+	def startPublishing(self):
+		self.prepareLogging()
+		self._keyChain = KeyChain()
+
+		self._loop = asyncio.get_event_loop()
+		self._face = ThreadsafeFace(self._loop)
+
+		self._face.setCommandSigningInfo(self._keyChain, self._keyChain.getDefaultCertificateName())
+
 		self.lastRefreshTime = int(time.time())
+		dataNode = self.boost.getDataNode()
+		childrenNode = self.boost.getChildrenNode()
+
+		self._face.registerPrefix(Name(self.boost.getNodePrefix()), self.onInterest, self.onRegisterFailed)
+
 		# For each type of data, we refresh each type of aggregation according to the interval in the configuration
-		for i in range(len(self.boost._root.subtrees['data'].subtrees)):
-			dataType = self.boost._root.subtrees['data'].subtrees.keys()[i]
-			aggregationTypes = self.boost._root.subtrees['data'].subtrees.items()[i][1]
-			print(aggregationTypes)
-			#for j in range(len(refreshInterval)):
-			#	self._doRefresh(time, refreshInterval.items()[j][1], dataType, refreshInterval.items()[j][0])
+		for i in range(len(dataNode.subtrees)):
+			dataType = dataNode.subtrees.keys()[i]
+			aggregationParams = self.boost.getProducingParamsForAggregationType(dataNode.subtrees.items()[i][1])
+
+			for aggregationType in aggregationParams:
+				if aggregationType != "raw":
+					children = OrderedDict()
+
+					for j in range(len(childrenNode.subtrees)):
+						if dataType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees:
+							if aggregationType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType].subtrees:
+								children[childrenNode.subtrees.items()[j][0]] = self.boost.getProducingParamsForAggregationType(childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType].subtrees[aggregationType])
+								#print("add child: " + childrenNode.subtrees.items()[j][0] + "-" + dataType + "-" + aggregationType)
+							
+					self.startPublishingAggregation(aggregationParams[aggregationType], children, dataType, aggregationType)
+				else:
+					self.startPublishingRaw(aggregationParams[aggregationType])
+				#self._doRefresh(time, refreshInterval.items()[j][1], dataType, refreshInterval.items()[j][0])
+		return
+
+	def startPublishingRaw(self, params):
+		return
+
+	def startPublishingAggregation(self, params, childrenList, dataType, aggregationType):
+		if __debug__:
+			print('Start publishing for ' + dataType + '-' + aggregationType)
+		publishingPrefix = Name(self.boost.getNodePrefix()).append('name').append(dataType).append('aggregation').append(aggregationType)
+
+		for child in childrenList.keys():
+			name = Name(self.boost.getNodePrefix()).append(child).append('name').append(dataType).append('aggregation').append(aggregationType)
+			interest = Interest(name)
+			if ('start_time' in childrenList[child]):
+				interest.getName().append(params['start_time']).append(params['producer_interval'])
+			else:
+				interest.setChildSelector(1)
+			interest.setInterestLifetimeMilliseconds(DEFAULT_LIFETIME)
+			if __debug__:
+				print('  Issue interest: ' + interest.getName().toUri())
+			self._face.expressInterest(interest, self.onData, self.onTimeout)
+
+		return
 
 	def _doRefresh(self, time, producerInterval, dataType, aggregationType):
 		now = self.lastRefreshTime
@@ -101,17 +155,6 @@ class BmsNode(object):
 			string = self.boost.getName(prefix) + '/data/' + dataType + '/' + aggregationType + '/' + startTime + '/' + endTime		
 		self._tempName = Name(string)
 		return name
-
-	def registerPrefix(self):
-		face = Face()
-		self._keyChain = Keychain()
-		self._certificateName = self._keyChain.getDefaultCertificateName()
-		face.setCommandSigningInfo(self._keyChain, self._certificateName)
-
-		prefix = self.boost.getName()
-		face.registerPrefix(prefix, onInterest, onRegisterFailed)
-
-		return face
 
 	def runProducer(self, face):
 		while self._responseCount < 1:
@@ -153,8 +196,44 @@ class BmsNode(object):
 		self._tempData = int(string)
 
 	def onTimeout(self, interest):
+		if __debug__:
+			print("interest timeout: " + interest.getName().toUri())
+		self._face.expressInterest(interest, self.onData, self.onTimeout)
 		return
 
+	def stop(self):
+		self._loop.stop()
+		if __debug__:
+			print("Stopped")
+		return
+
+##
+# Logging
+##
+	def prepareLogging(self):
+		self.log = logging.getLogger(str(self.__class__))
+		self.log.setLevel(logging.DEBUG)
+		logFormat = "%(asctime)-15s %(name)-20s %(funcName)-20s (%(levelname)-8s):\n\t%(message)s"
+		self._console = logging.StreamHandler()
+		self._console.setFormatter(logging.Formatter(logFormat))
+		self._console.setLevel(logging.INFO)
+		# without this, a lot of ThreadsafeFace errors get swallowed up
+		logging.getLogger("trollius").addHandler(self._console)
+		self.log.addHandler(self._console)
+
+	def setLogLevel(self, level):
+		"""
+		Set the log level that will be output to standard error
+		:param level: A log level constant defined in the logging module (e.g. logging.INFO) 
+		"""
+		self._console.setLevel(level)
+
+	def getLogger(self):
+		"""
+		:return: The logger associated with this node
+		:rtype: logging.Logger
+		"""
+		return self.log
 
 def main():
 	try:
@@ -167,7 +246,15 @@ def main():
 		if o == "--conf":
 			bNode = BmsNode()
 			bNode.setConfiguration(a)
-			bNode.doRefresh()
+			bNode.startPublishing()
+
+
+			try:
+				bNode._loop.run_forever()
+			except Exception as e:
+				print(e)
+			finally:
+				bNode.stop()
 		else:
 			assert False, "unhandled option"
 
