@@ -19,6 +19,9 @@ except ImportError:
 
 from config_split import BoostInfoParser
 
+# TODO: start aggregation with rightMostChild mode, non-mandatory child's data
+
+# Program constants
 DEFAULT_INTEREST_LIFETIME = 6000
 DEFAULT_DATA_LIFETIME = 2000000
 
@@ -186,6 +189,7 @@ class BmsNode(object):
 				if __debug__:
 					print("Produced: " + publishData.getName().toUri() + "; " + publishData.getContent().toRawStr())
 
+		# repetition of this function only happens for raw data producer, otherwise calculateAggregation is called by each onData
 		if repeat:
 			self._loop.call_later(interval, self.calculateAggregation, dataType, aggregationType, childrenList, startTime + interval, interval, publishingPrefix, repeat)
 		return
@@ -247,7 +251,8 @@ class BmsNode(object):
 
 	def onTimeout(self, interest):
 		if __debug__:
-			print("interest timeout: " + interest.getName().toUri())
+			#print("interest timeout: " + interest.getName().toUri())
+			pass
 		self._face.expressInterest(interest, self.onData, self.onTimeout)
 		return
 
