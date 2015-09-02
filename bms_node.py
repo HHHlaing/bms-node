@@ -20,7 +20,7 @@ except ImportError:
 from config_split import BoostInfoParser
 
 DEFAULT_INTEREST_LIFETIME = 6000
-DEFAULT_DATA_LIFETIME = 200000
+DEFAULT_DATA_LIFETIME = 2000000
 
 # Namespace constants
 DATA_COMPONENT = "data"
@@ -55,7 +55,8 @@ class Aggregation(object):
 	def getMax(self, dataList):
 		return max(dataList)
 
-# For each data and aggregation type, a data queue with a dictionary, publishing params, list of children and publishingPrefix is created; 
+# For each data and aggregation type, a data queue with a dictionary, 
+# publishing params, list of children and publishingPrefix is created; 
 class DataQueue(object):
 	def __init__(self, publishingParams, childrenList, publishingPrefix):
 		self._dataDict = dict()
@@ -66,8 +67,7 @@ class DataQueue(object):
 
 class BmsNode(object):
 	def __init__(self):
-		self.boost = None
-		self.lastRefreshTime = int(time.time())
+		self.conf = None
 		self._keyChain = None
 		self._certificateName = None
 
@@ -80,11 +80,11 @@ class BmsNode(object):
 		self._aggregation = Aggregation()
 
 	def setConfiguration(self, fileName):
-		self.boost = BoostInfoParser()
-		self.boost.read(fileName)
+		self.conf = BoostInfoParser()
+		self.conf.read(fileName)
 
 	def onDataNotFound(self, prefix, interest, face, interestFilterId, filter):
-		print('Data not found for ' + interest.getName().toUri())
+		#print('Data not found for ' + interest.getName().toUri())
 		return
 
 	def startPublishing(self):
@@ -97,18 +97,17 @@ class BmsNode(object):
 		self._face.setCommandSigningInfo(self._keyChain, self._keyChain.getDefaultCertificateName())
 		self._memoryContentCache = MemoryContentCache(self._face)
 
-		self.lastRefreshTime = int(time.time())
-		dataNode = self.boost.getDataNode()
-		childrenNode = self.boost.getChildrenNode()
+		dataNode = self.conf.getDataNode()
+		childrenNode = self.conf.getChildrenNode()
 
-		print(self.boost.getNodePrefix())
+		print(self.conf.getNodePrefix())
 
-		self._memoryContentCache.registerPrefix(Name(self.boost.getNodePrefix()), self.onRegisterFailed, self.onDataNotFound)
+		self._memoryContentCache.registerPrefix(Name(self.conf.getNodePrefix()), self.onRegisterFailed, self.onDataNotFound)
 
 		# For each type of data, we refresh each type of aggregation according to the interval in the configuration
 		for i in range(len(dataNode.subtrees)):
 			dataType = dataNode.subtrees.keys()[i]
-			aggregationParams = self.boost.getProducingParamsForAggregationType(dataNode.subtrees.items()[i][1])
+			aggregationParams = self.conf.getProducingParamsForAggregationType(dataNode.subtrees.items()[i][1])
 
 			if childrenNode == None:
 				self._dataQueue[dataType] = DataQueue(None, None, None)
@@ -121,7 +120,7 @@ class BmsNode(object):
 					for j in range(len(childrenNode.subtrees)):
 						if dataType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees:
 							if aggregationType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType].subtrees:
-								childrenList[childrenNode.subtrees.items()[j][0]] = self.boost.getProducingParamsForAggregationType(childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType])[aggregationType]
+								childrenList[childrenNode.subtrees.items()[j][0]] = self.conf.getProducingParamsForAggregationType(childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType])[aggregationType]
 
 				self.startPublishingAggregation(aggregationParams[aggregationType], childrenList, dataType, aggregationType)
 		return
@@ -131,7 +130,7 @@ class BmsNode(object):
 			print('Start publishing for ' + dataType + '-' + aggregationType)
 		
 		# aggregation calculating and publishing mechanism
-		publishingPrefix = Name(self.boost.getNodePrefix()).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
+		publishingPrefix = Name(self.conf.getNodePrefix()).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 		self._dataQueue[dataType + aggregationType] = DataQueue(params, childrenList, publishingPrefix)
 
 		if len(childrenList.keys()) == 0:
@@ -139,7 +138,7 @@ class BmsNode(object):
 		else:
 			# express interest for children who produce the same data and aggregation type
 			for childName in childrenList.keys():
-				name = Name(self.boost.getNodePrefix()).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
+				name = Name(self.conf.getNodePrefix()).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 				interest = Interest(name)
 				if ('start_time' in childrenList[childName]):
 					endTime = int(childrenList[childName]['start_time']) + int(childrenList[childName]['producer_interval'])
@@ -180,6 +179,10 @@ class BmsNode(object):
 				publishData.setContent(str(content))
 				publishData.getMetaInfo().setFreshnessPeriod(DEFAULT_DATA_LIFETIME)
 				self._memoryContentCache.add(publishData)
+				for childName in childrenList.keys():
+					dataDictKey = self.getDataDictKey(startTime, (startTime + interval), childName)
+					if dataDictKey in self._dataQueue[dataType + aggregationType]._dataDict:
+						del self._dataQueue[dataType + aggregationType]._dataDict[dataDictKey]
 				if __debug__:
 					print("Produced: " + publishData.getName().toUri() + "; " + publishData.getContent().toRawStr())
 
