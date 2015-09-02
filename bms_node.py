@@ -52,9 +52,11 @@ class Aggregation(object):
 		return max(dataList)
 
 class DataQueue(object):
-	def __init__(self, publishingParams):
+	def __init__(self, publishingParams, childrenList, publishingPrefix):
 		self._dataDict = dict()
 		self._publishingParams = publishingParams
+		self._childrenList = childrenList
+		self._publishingPrefix = publishingPrefix
 		return
 
 class BmsNode(object):
@@ -105,7 +107,7 @@ class BmsNode(object):
 			aggregationParams = self.boost.getProducingParamsForAggregationType(dataNode.subtrees.items()[i][1])
 
 			if childrenNode == None:
-				self._dataQueue[dataType] = DataQueue(None)
+				self._dataQueue[dataType] = DataQueue(None, None, None)
 				self.generateData(dataType, 2, 0)
 
 			for aggregationType in aggregationParams:
@@ -116,16 +118,20 @@ class BmsNode(object):
 						if dataType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees:
 							if aggregationType in childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType].subtrees:
 								childrenList[childrenNode.subtrees.items()[j][0]] = self.boost.getProducingParamsForAggregationType(childrenNode.subtrees.items()[j][1].subtrees['data'].subtrees[dataType])[aggregationType]
-								#print("add child: " + childrenNode.subtrees.items()[j][0] + "-" + dataType + "-" + aggregationType)
+
 				self.startPublishingAggregation(aggregationParams[aggregationType], childrenList, dataType, aggregationType)
 		return
 
 	def startPublishingAggregation(self, params, childrenList, dataType, aggregationType):
 		if __debug__:
 			print('Start publishing for ' + dataType + '-' + aggregationType)
+		
+		# aggregation calculating and publishing mechanism
+		publishingPrefix = Name(self.boost.getNodePrefix()).append('data').append(dataType).append('aggregation').append(aggregationType)
+		self._dataQueue[dataType + aggregationType] = DataQueue(params, childrenList, publishingPrefix)
 
 		if len(childrenList.keys()) == 0:
-			pass
+			self._loop.call_later(int(params['producer_interval']), self.calculateAggregation, dataType, aggregationType, childrenList, int(params['start_time']), int(params['producer_interval']), publishingPrefix, True)
 		else:
 			# express interest for children who produce the same data and aggregation type
 			for child in childrenList.keys():
@@ -141,15 +147,10 @@ class BmsNode(object):
 					print('  Issue interest: ' + interest.getName().toUri())
 				self._face.expressInterest(interest, self.onData, self.onTimeout)
 
-		# aggregation calculating and publishing mechanism
-		publishingPrefix = Name(self.boost.getNodePrefix()).append('data').append(dataType).append('aggregation').append(aggregationType)
-		self._dataQueue[dataType + aggregationType] = DataQueue(params)
-		self.calculateAggregation(dataType, aggregationType, childrenList, int(params['start_time']), int(params['producer_interval']), publishingPrefix)
-
 		return
 
-	# TODO: once one calculation's decided a child has not answered, we don't do another calculation
-	def calculateAggregation(self, dataType, aggregationType, childrenList, startTime, interval, publishingPrefix):
+	# TODO: once one calculation's decided a child has not answered, we should do another calculation
+	def calculateAggregation(self, dataType, aggregationType, childrenList, startTime, interval, publishingPrefix, repeat = False):
 		doCalc = True
 		dataList = []
 
@@ -157,10 +158,9 @@ class BmsNode(object):
 		if len(childrenList.keys()) != 0:
 			for child in childrenList.keys():
 				dataDictKey = str(startTime) + '/' + str(startTime + interval) + '/' + child
-				#print(dataDictKey)
 				if dataDictKey in self._dataQueue[dataType + aggregationType]._dataDict:
 					data = self._dataQueue[dataType + aggregationType]._dataDict[dataDictKey]
-					dataList.append(int(data.getContent().toRawStr()))
+					dataList.append(float(data.getContent().toRawStr()))
 					#print('Appended ' + child + ' to data list')
 				else:
 					#print('Child ' + child + ' has not replied yet')
@@ -168,19 +168,20 @@ class BmsNode(object):
 					break
 		else:
 			for inst in self._dataQueue[dataType]._dataDict.keys():
-				if int(inst) >= startTime - interval and int(inst) < startTime:
+				if int(inst) >= startTime and int(inst) < startTime + interval:
 					dataList.append(self._dataQueue[dataType]._dataDict[inst])
 		if doCalc:
 			content = self._aggregation.getAggregation(aggregationType, dataList)
 			if content:
-				publishData = Data(Name(publishingPrefix).append(str(startTime - interval)).append(str(startTime)))
+				publishData = Data(Name(publishingPrefix).append(str(startTime)).append(str(startTime + interval)))
 				publishData.setContent(str(content))
 				publishData.getMetaInfo().setFreshnessPeriod(DEFAULT_DATA_LIFETIME)
 				self._memoryContentCache.add(publishData)
 				if __debug__:
 					print("Produced: " + publishData.getName().toUri() + "; " + publishData.getContent().toRawStr())
 
-		self._loop.call_later(interval, self.calculateAggregation, dataType, aggregationType, childrenList, startTime + interval, interval, publishingPrefix)
+		if repeat:
+			self._loop.call_later(interval, self.calculateAggregation, dataType, aggregationType, childrenList, startTime + interval, interval, publishingPrefix, repeat)
 		return
 
 	def generateData(self, dataType, interval, startTime):
@@ -262,15 +263,36 @@ class BmsNode(object):
 
 	def onData(self, interest, data):
 		dataName = data.getName()
+		dataQueue = None
+
 		if __debug__:
 			print("Got data: " + dataName.toUri() + "; " + data.getContent().toRawStr())
 		for i in range(0, len(dataName)):
 			if dataName.get(i).toEscapedString() == 'aggregation':
-				dataAndAggregationType = dataName.get(i - 1).toEscapedString() + dataName.get(i + 1).toEscapedString()
+				dataType = dataName.get(i - 1).toEscapedString()
+				aggregationType = dataName.get(i + 1).toEscapedString()
+				
+				startTime = int(dataName.get(i + 2).toEscapedString())
+				endTime = int(dataName.get(i + 3).toEscapedString())
+				childName = dataName.get(i - 3).toEscapedString()
+
+				dataAndAggregationType = dataType + aggregationType
 				# This creation of dataDictKey means parent and child should not have the same name
-				dataDictKey = dataName.get(i + 2).toEscapedString() + '/' + dataName.get(i + 3).toEscapedString() + '/' + dataName.get(i - 3).toEscapedString()
-				print(dataDictKey)
-				self._dataQueue[dataAndAggregationType]._dataDict[dataDictKey] = data
+				dataDictKey = str(startTime) + '/' + str(endTime) + '/' + childName
+				dataQueue = self._dataQueue[dataAndAggregationType]
+				dataQueue._dataDict[dataDictKey] = data
+				break
+
+		# TODO: check what if interval/starttime is misconfigured
+		if dataQueue:
+			self.calculateAggregation(dataType, aggregationType, dataQueue._childrenList, startTime, endTime - startTime, dataQueue._publishingPrefix)
+
+		# Always ask for the next piece of data when we receive this one; assumes interval does not change; this also assumes there are no more components after endTime
+		newInterestName = dataName.getPrefix(i + 2).append(str(endTime)).append(str(endTime + (endTime - startTime)))
+		newInterest = Interest(interest)
+		interest.setName(newInterestName)
+		self._face.expressInterest(interest, self.onData, self.onTimeout)
+
 		return
 
 	def onTimeout(self, interest):
