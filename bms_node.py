@@ -22,6 +22,10 @@ from config_split import BoostInfoParser
 DEFAULT_INTEREST_LIFETIME = 6000
 DEFAULT_DATA_LIFETIME = 200000
 
+# Namespace constants
+DATA_COMPONENT = "data"
+AGGREGATION_COMPONENT = "aggregation"
+
 class Aggregation(object):
 	def __init__(self):
 		pass
@@ -51,6 +55,7 @@ class Aggregation(object):
 	def getMax(self, dataList):
 		return max(dataList)
 
+# For each data and aggregation type, a data queue with a dictionary, publishing params, list of children and publishingPrefix is created; 
 class DataQueue(object):
 	def __init__(self, publishingParams, childrenList, publishingPrefix):
 		self._dataDict = dict()
@@ -99,7 +104,6 @@ class BmsNode(object):
 		print(self.boost.getNodePrefix())
 
 		self._memoryContentCache.registerPrefix(Name(self.boost.getNodePrefix()), self.onRegisterFailed, self.onDataNotFound)
-		#self._face.registerPrefix(Name(self.boost.getNodePrefix()), self.onInterest, self.onRegisterFailed)
 
 		# For each type of data, we refresh each type of aggregation according to the interval in the configuration
 		for i in range(len(dataNode.subtrees)):
@@ -127,19 +131,19 @@ class BmsNode(object):
 			print('Start publishing for ' + dataType + '-' + aggregationType)
 		
 		# aggregation calculating and publishing mechanism
-		publishingPrefix = Name(self.boost.getNodePrefix()).append('data').append(dataType).append('aggregation').append(aggregationType)
+		publishingPrefix = Name(self.boost.getNodePrefix()).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 		self._dataQueue[dataType + aggregationType] = DataQueue(params, childrenList, publishingPrefix)
 
 		if len(childrenList.keys()) == 0:
 			self._loop.call_later(int(params['producer_interval']), self.calculateAggregation, dataType, aggregationType, childrenList, int(params['start_time']), int(params['producer_interval']), publishingPrefix, True)
 		else:
 			# express interest for children who produce the same data and aggregation type
-			for child in childrenList.keys():
-				name = Name(self.boost.getNodePrefix()).append(child).append('data').append(dataType).append('aggregation').append(aggregationType)
+			for childName in childrenList.keys():
+				name = Name(self.boost.getNodePrefix()).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 				interest = Interest(name)
-				if ('start_time' in childrenList[child]):
-					endTime = int(childrenList[child]['start_time']) + int(childrenList[child]['producer_interval'])
-					interest.getName().append(str(childrenList[child]['start_time'])).append(str(endTime))
+				if ('start_time' in childrenList[childName]):
+					endTime = int(childrenList[childName]['start_time']) + int(childrenList[childName]['producer_interval'])
+					interest.getName().append(str(childrenList[childName]['start_time'])).append(str(endTime))
 				else:
 					interest.setChildSelector(1)
 				interest.setInterestLifetimeMilliseconds(DEFAULT_INTEREST_LIFETIME)
@@ -156,14 +160,13 @@ class BmsNode(object):
 
 		# TODO: an intermediate node cannot produce raw data for now
 		if len(childrenList.keys()) != 0:
-			for child in childrenList.keys():
-				dataDictKey = str(startTime) + '/' + str(startTime + interval) + '/' + child
+			for childName in childrenList.keys():
+				dataDictKey = self.getDataDictKey(startTime, (startTime + interval), childName)
 				if dataDictKey in self._dataQueue[dataType + aggregationType]._dataDict:
 					data = self._dataQueue[dataType + aggregationType]._dataDict[dataDictKey]
 					dataList.append(float(data.getContent().toRawStr()))
-					#print('Appended ' + child + ' to data list')
 				else:
-					#print('Child ' + child + ' has not replied yet')
+					#print('Child ' + childName + ' has not replied yet')
 					doCalc = False
 					break
 		else:
@@ -189,62 +192,6 @@ class BmsNode(object):
 		self._loop.call_later(interval, self.generateData, dataType, interval, startTime + interval)
 		return
 
-	def _doRefresh(self, time, producerInterval, dataType, aggregationType):
-		now = self.lastRefreshTime
-		if now >= time + producerInterval:
-			if aggregation == "inst":
-				runConsumer(None, dataType, aggregationType, now)
-				self._dataQueue.append((self._tempName, str(self._tempData)))
-				self._tempData = None
-			elif aggregation == "batch":
-				runConsumer(None, dataType, aggregationType, time, now)
-				self._dataQueue.append((self._tempName, str(self._tempData)))
-				self._tempData = None
-			elif aggregation == "raw":
-				# not finish
-				pass
-			else: 
-				#aggregation in ["avg", "min", "max"]:
-				dataList = []
-				for i in range(len(self.boost.subtrees['children'].subtrees)):
-					string = self.boost.subtrees['children'].subtrees.items()[i][0]
-					self.runConsumer(string, dataType, aggregationType, time, now)
-					if not self._tempData == None:
-						dataList.append(self._tempData)
-						self._tempData = None
-				self._tempData = self.aggregation._doRefresh(aggregationType, dataList)
-				self._dataQueue.append((self._tempName, str(self._tempData)))
-				self._tempData = None
-		face = self.registerPrefix()
-		self.runProducer(face)
-
-	def setName(self, prefix, dataType, aggregationoType, startTime, endTime = None):
-		if endTime == None:
-			string = self.boost.getName(prefix) + '/data/' + dataType + '/' + aggregationType + '/' + startTime
-		else:
-			string = self.boost.getName(prefix) + '/data/' + dataType + '/' + aggregationType + '/' + startTime + '/' + endTime		
-		self._tempName = Name(string)
-		return name
-
-	def runProducer(self, face):
-		while self._responseCount < 1:
-			face.processEvents()
-			time.sleep(0.01)
-
-		face.shutdown()
-
-	def runConsumer(self, prefix, dataType, aggregationType, startTime, endTime = None):
-		face = Face()
-		self._callbackCount = 0
-		name = Name(self.setName(prefix, dataType, aggregationType, startTime, endTime))
-		face.expressInterest(name, self.onData, self.onTimeout)
-
-		while self._callbackCount < 1:
-			face.processEvents()
-			time.sleep(0.01)
-
-		face.shutdown()
-
 	def onInterest(self, prefix, interest, face, interestFilterId, filter):
 		name = interest.getName()
 
@@ -268,7 +215,7 @@ class BmsNode(object):
 		if __debug__:
 			print("Got data: " + dataName.toUri() + "; " + data.getContent().toRawStr())
 		for i in range(0, len(dataName)):
-			if dataName.get(i).toEscapedString() == 'aggregation':
+			if dataName.get(i).toEscapedString() == AGGREGATION_COMPONENT:
 				dataType = dataName.get(i - 1).toEscapedString()
 				aggregationType = dataName.get(i + 1).toEscapedString()
 				
@@ -277,8 +224,8 @@ class BmsNode(object):
 				childName = dataName.get(i - 3).toEscapedString()
 
 				dataAndAggregationType = dataType + aggregationType
-				# This creation of dataDictKey means parent and child should not have the same name
-				dataDictKey = str(startTime) + '/' + str(endTime) + '/' + childName
+				
+				dataDictKey = self.getDataDictKey(startTime, endTime, childName)
 				dataQueue = self._dataQueue[dataAndAggregationType]
 				dataQueue._dataDict[dataDictKey] = data
 				break
@@ -306,6 +253,11 @@ class BmsNode(object):
 		if __debug__:
 			print("Stopped")
 		return
+	
+	# This creation of dataDictKey means parent and child should not have the same name			
+	@staticmethod
+	def getDataDictKey(startTime, endTime, childName):
+		return str(startTime) + '/' + str(endTime) + '/' + childName
 
 ##
 # Logging
@@ -347,7 +299,6 @@ def main():
 			bNode = BmsNode()
 			bNode.setConfiguration(a)
 			bNode.startPublishing()
-
 
 			try:
 				bNode._loop.run_forever()
