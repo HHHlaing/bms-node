@@ -129,7 +129,7 @@ class BoostInfoParser(object):
 		return self._root
 
 	def getName(self, key = None):
-		name = self._root.subtrees['node_prefix'].value
+		name = self._root.subtrees['node_name'].value
 		if key == None:
 			return name
 		else:
@@ -187,13 +187,26 @@ class BoostInfoParser(object):
 		return result
 
 	def getNodePrefix(self):
-		return self._root.subtrees['node_prefix'].value
+		return self._root.subtrees['node_name'].value
 
 	def getDataNode(self):
-		return self._root.subtrees['data']
+		if 'data' in self._root.subtrees:
+			return self._root.subtrees['data']
+		else:
+			return None
 
 	def getChildrenNode(self):
-		return self._root.subtrees['children']
+		if 'children' in self._root.subtrees:
+			return self._root.subtrees['children']
+		else:
+			return None
+
+		# return int 1: leaf nodes; 0: non-leaf nodes
+	def getNodeType(self):
+		if (self.getChildrenNode()):
+			return 0
+		else:
+			return 1
 
 if __name__ == "__main__":
 	boost = BoostInfoParser()
