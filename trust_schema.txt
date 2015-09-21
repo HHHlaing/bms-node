@@ -1,0 +1,199 @@
+names
+
+Identity name -> Key name
+1. /ndn/app/bms/ucla/ -> /ndn/app/bms/ucla/KEY/ksk-123/ID-CERT/%FD%00
+2. /ndn/app/bms/ucla/melnitz/ -> /ndn/app/bms/ucla/melnitz/KEY/ksk-123/ID-CERT/%FD%00
+3. /ndn/app/bms/ucla/melnitz/sensor1 -> /ndn/app/bms/ucla/melnitz/sensor1/KEY/ksk-123/ID-CERT/%FD%00
+4. /ndn/app/bms/ucla/boelter/sensor1 -> /ndn/app/bms/ucla/boelter/sensor1/KEY/ksk-123/ID-CERT/%FD%00
+
+Rules
+1. BMS data should be checked with hierarchical, for example, 4 should not be signed by 2
+2. 3 should be signed by 2, 2 should be signed by 1, 1 should be signed by /ndn/app/bms/KEY/, the root of trust
+3. Is it ok for 3 to be signed by 1 directly? I think so
+4. Anything in
+/ndn/app/bms/ucla/*
+should eventually be signed by 
+/ndn/app/bms/ucla
+
+validator
+{
+  // BMS data packet signer name needs to be the prefix of data name
+  rule {
+    id "BMS data"
+    for data
+    filter {
+      type name
+      name /ndn/app/bms
+      relation is-prefix-of
+    }
+    checker {
+      type hierarchical
+      sig-type rsa-sha256
+    }
+  }
+
+  // BMS identities should be signed by identities whose location-hierarchy name components is the prefix of this node's location-hierarchy name components
+  // This rule should override the previous one, and should be used for node certs but not user certs?
+  rule {
+    id "BMS nodes"
+    for data
+    filter {
+      type name
+      regex ^<ndn><app><bms>[^<USER>]([^<KEY>]+)<KEY><><ID-CERT><>$
+    }
+    checker {
+      type customized
+      sig-type rsa-sha256
+      key-locator {
+        k-regex ^<ndn><app><bms>([^<KEY>]*)<KEY><><ID-CERT><>$
+        k-expand \\1
+        h-relation is-prefix-of
+        p-regex ^<ndn><app><bms>([^<KEY>]+)<KEY><><ID-CERT><>$
+        p-expand \\1
+      }
+    }
+  }
+  
+  // For now, BMS users should be authorized by the root itself, verifying BMS user is only needed for GBE; and maybe BMS commands, whose design is not fully fleshed out (for example, interest or data?), which means we can apply the hierarchical trust rule as all BMS data?
+  /*
+  rule {
+    id "BMS users"
+    for data
+    filter {
+      type name
+      regex ^<ndn><app><bms><USER><><KEY><><ID-CERT><>$
+    }
+    checker {
+      ...
+    }
+  }
+  */
+
+  trust-anchor
+  {
+    type base64
+    base64-string Mb43ha38as3Hb
+  }
+}
+
+
+
+rule { // channel owner
+  id channel_owner
+  for data
+  filter {
+    type name
+    regex ^<ndn><org><icn><CHAT><CHANNEL><><KEY><><ID-CERT><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      regex ^<ndn><org><icn><KEY><><ID-CERT>$
+    }
+  }
+}
+
+rule { // channel user
+  id channel_user
+  for data
+  filter {
+    type name
+    regex ^<ndn><org><icn><CHAT><CHANNEL><><USER><><KEY><><ID-CERT><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      hyper-relation {
+        k-regex ^(<ndn><org><icn>)<CHAT><CHANNEL>(<>)<KEY><><ID-CERT>$
+        k-expand \\1\\2
+        h-relation equal
+        p-regex ^(<ndn><org><icn>)<CHAT><CHANNEL>(<>)<USER><><KEY><><ID-CERT><>$
+        p-expand \\1\\2
+      }
+    }
+  }
+}
+
+rule { // sync reply
+  id sync_reply
+  for data
+  filter {
+    type name
+    regex ^<ndn><mulitcast><CHAT><CHANNEL><><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      hyper-relation {
+        k-regex ^<ndn><org><icn><CHAT><CHANNEL>(<>)<USER><><KEY><><ID-CERT>$
+        k-expand \\1
+        h-relation equal
+        p-regex ^<ndn><mulitcast><CHAT><CHANNEL>(<>)<>$
+        p-expand \\1
+      }
+    }
+  }
+}
+
+rule { // chat data
+  id chat_data
+  for data
+  filter {
+    type name
+    regex ^<ndn><org><icn><USER><><CHAT><CHANNEL><><SESSION><><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      hyper-relation {
+        k-regex ^<ndn><org><icn><CHAT><CHANNEL>(<>)<USER>(<>)<KEY><><ID-CERT>$
+        k-expand \\1\\2
+        h-relation equal
+        p-regex ^<ndn><org><icn><USER>(<>)<CHAT><CHANNEL>(<>)<SESSION><><>$
+        p-expand \\2\\1
+      }
+    }
+  }
+}
+
+rule { // prefix registeration
+  id prefix_reg
+  for interest
+  filter {
+    type name
+    regex ^<localhost><nfd><rib><register><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      regex ^<ndn><org><icn><>*<KEY><><ID-CERT>$
+    }
+  }
+}
+
+rule { // join request
+  id join_req
+  for interest
+  filter {
+    type name
+    regex ^<ndn><org><icn><CHAT><CHANNEL><><JOIN-REQUEST><>$
+  }
+  checker {
+    type customized
+    sig-type rsa-sha256
+    key-locator {
+      type name
+      regex ^<ndn><org><icn><USER><><KEY><><ID-CERT>$
+    }
+  }
+}
