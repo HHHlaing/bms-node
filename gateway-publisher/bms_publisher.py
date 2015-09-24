@@ -86,8 +86,22 @@ def publish(line, rootName, cache):
                 dataQueue[name] = DataQueueItem([], startTime + defaultInterval)
                 dataQueue[name]._dataList.append(dataDict["value"])
             elif dataDict["timestamp"] > dataQueue[name]._timeThreshold:
+                
+                # calculate the aggregation with what's already in the queue, publish data packet, and delete current queue
+                # TODO: This should be mutex locked against self
+                if len(dataQueue[name]._dataList) > 0:
+                    avg = 0
+                    for (item in dataQueue[name]._dataList):
+                        avg += item["value"]
+                    avg = avg / len(dataQueue[name]._dataList)
+                    data = Data(Name(name).append(str(dataQueue[name]._timeThreshold)).append(str(dataQueue[name]._timeThreshold + defaultInterval)))
+                    data.setContent(str(avg))
+                    data.getMetaInfo.setFreshnessPeriod(DEFAULT_DATA_LIFETIME)
+                    cache.add(data)
+                    print("Aggregation produced " + data.getName().toUri())
+
+                dataQueue[name]._dataList = [dataDict["value"]]
                 dataQueue[name]._timeThreshold = dataQueue[name]._timeThreshold + defaultInterval
-                # calculate the aggregation of what's already in the queue, publish data packet, and delete current queue
             else:
                 dataQueue[name]._dataList.append(dataDict["value"])
             
