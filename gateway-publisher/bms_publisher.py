@@ -71,12 +71,14 @@ class DataPublisher(object):
         if name is not None:
             #print("Publishing log entry", logdt, "to", name, dataDict["timestamp"], "payload:", dataJson)
             #if dateTime < T: return
-            print(dateTime, name, dataDict["timestamp"], "payload:", dataDict["value"])
+            #if __debug__:
+            #    print(dateTime, name, dataDict["timestamp"], "payload:", dataDict["value"])
             try:
                 # Timestamp in data name uses the timestamp from data paylaod
                 dataTemp = self.createData(name, dataDict["timestamp"], dataDict["value"])
-                print(dataTemp.getName().toUri())
-                print(dataTemp.getContent().toRawStr())
+                if __debug__:
+                    print("Produced raw data name " + dataTemp.getName().toUri())
+                    print("Produced raw data content " + dataTemp.getContent().toRawStr())
                 self._cache.add(dataTemp)
 
                 # TODO: since the leaf sensor publisher is not a separate node for now, we also publish aggregated data
@@ -117,7 +119,8 @@ class DataPublisher(object):
         data.setContent(payload)
         #keyChain.sign(data, keyChain.getDefaultCertificateName())
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
-        print("ndn:" + name + "/" + str(timestamp) + "\t:" + payload)
+        if __debug__:
+            print("ndn:" + name + "/" + str(timestamp) + "\t:" + payload)
         return data
 
     def pointNameToName(self, point):
@@ -154,8 +157,8 @@ class DataPublisher(object):
             d["timestamp"] = 0
             d["timestamp_str"] = ("0000-00-00 00:00:00.00")
         try:
-            #print(json.dumps(d))
-            pass
+            if __debug__:
+                print(json.dumps(d))
         except Exception as detail:
             print("pointToJSON: Error in JSON conversation of", pd)
             return "{}"
