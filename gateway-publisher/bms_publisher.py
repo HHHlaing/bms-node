@@ -10,6 +10,8 @@ import subprocess
 import time
 import select
 
+import csv
+
 try:
     import asyncio
 except ImportError:
@@ -24,6 +26,15 @@ from pyndn.security import KeyChain
 from pyndn.util.memory_content_cache import MemoryContentCache
 
 T = datetime.strptime("2015-02-05", "%Y-%m-%d")
+
+# Value of dictionary _sensorNDNDict
+#       key:    string, string name of sensor from given csv and received sensor data JSON
+#       value:  _aggregationName, Name, the ndn-ized aggregation data name prefix
+#               _instName, Name, the ndn-ized instantaneous data name
+class SensorNDNDictItem(object):
+    def __init__(self, aggregationName, instName):
+        self._aggregationName = aggregationName
+        self._instName = instName
 
 class DataQueueItem(object):
     def __init__(self, dataList, timeThreshold):
@@ -49,6 +60,32 @@ class DataPublisher(object):
         self._namespace = namespace
         self.DEFAULT_DATA_LIFETIME = 2000000
 
+        self._sensorNDNDict = dict()
+
+    def populateSensorNDNDictFromCSV(self, csvFileName):
+        with open(csvFileName, 'rU') as csvFile:
+            reader = csv.reader(csvFile, delimiter=',', quotechar='|')
+
+            for row in reader:
+                if (len(row)) > 5:
+                    # sensor full name, building name, room name, sensor name, sensor data type
+                    #print(row[1], row[2], row[3], row[4], row[5])
+                    key = ''
+                    if (row[3] != ''):
+                        key = row[2].lower().strip() + '.' + row[3].lower().strip() + '.' + row[4].lower().strip()
+                        ndnNameString = row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
+                        aggregationName = Name(ndnNameString).append('data').append(row[5]).append('aggregation')
+                        instName = Name(ndnNameString).append('data').append(row[5]).append('inst')
+
+                        self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
+                    else:
+                        key = row[2].lower().strip() + '.' + row[4].lower().strip()
+                        ndnNameString = row[2].lower().strip() + '/' + row[4].lower().strip()
+                        aggregationName = Name(ndnNameString).append('data').append(row[5]).append('aggregation')
+                        instName = Name(ndnNameString).append('data').append(row[5]).append('inst')
+
+                        self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
+
     def publish(self, line):
         # Pull out and parse datetime for log entry 
         # (note we shoudld use point time for timestamp)
@@ -65,17 +102,17 @@ class DataPublisher(object):
             print("publish: Date/time conversion error for", line, "-", detail)
             return
             
-        name = self.pointNameToName(point[0])
+        sensorName = point[0]
+        namePrefix = self.pointNameToNDNName(sensorName)
         dataDict = self.pointToJSON(point)
         
-        if name is not None:
-            #print("Publishing log entry", logdt, "to", name, dataDict["timestamp"], "payload:", dataJson)
+        if namePrefix is not None:
             #if dateTime < T: return
             #if __debug__:
-            #    print(dateTime, name, dataDict["timestamp"], "payload:", dataDict["value"])
+            #    print(dateTime, namePrefix, dataDict["timestamp"], "payload:", dataDict["value"])
             try:
                 # Timestamp in data name uses the timestamp from data paylaod
-                dataTemp = self.createData(name, dataDict["timestamp"], dataDict["value"])
+                dataTemp = self.createData(namePrefix, dataDict["timestamp"], dataDict["value"])
                 if __debug__:
                     print("Produced raw data name " + dataTemp.getName().toUri())
                     print("Produced raw data content " + dataTemp.getContent().toRawStr())
@@ -89,27 +126,27 @@ class DataPublisher(object):
                 dataTime = int(float(dataDict["timestamp"]) * 1000)
                 if self._startTime == 0:
                     self._startTime = dataTime
-                if not (name in self._dataQueue):
-                    self._dataQueue[name] = DataQueueItem([], self._startTime + self._defaultInterval)
-                    self._dataQueue[name]._dataList.append(dataDict["value"])
-                elif dataTime > self._dataQueue[name]._timeThreshold:
+                if not (sensorName in self._dataQueue):
+                    self._dataQueue[sensorName] = DataQueueItem([], self._startTime + self._defaultInterval)
+                    self._dataQueue[sensorName]._dataList.append(dataDict["value"])
+                elif dataTime > self._dataQueue[sensorName]._timeThreshold:
                     # calculate the aggregation with what's already in the queue, publish data packet, and delete current queue
                     # TODO: This should be mutex locked against self
-                    if len(self._dataQueue[name]._dataList) > 0:
+                    if len(self._dataQueue[sensorName]._dataList) > 0:
                         avg = 0.0
-                        for item in self._dataQueue[name]._dataList:
+                        for item in self._dataQueue[sensorName]._dataList:
                             avg += float(item)
-                        avg = avg / len(self._dataQueue[name]._dataList)
-                        data = Data(Name(name).append(str(self._dataQueue[name]._timeThreshold)).append(str(self._dataQueue[name]._timeThreshold + self._defaultInterval)))
+                        avg = avg / len(self._dataQueue[sensorName]._dataList)
+                        data = Data(Name(namePrefix).append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
                         self._cache.add(data)
                         print("Aggregation produced " + data.getName().toUri())
 
-                    self._dataQueue[name]._dataList = [dataDict["value"]]
-                    self._dataQueue[name]._timeThreshold = self._dataQueue[name]._timeThreshold + self._defaultInterval
+                    self._dataQueue[sensorName]._dataList = [dataDict["value"]]
+                    self._dataQueue[sensorName]._timeThreshold = self._dataQueue[sensorName]._timeThreshold + self._defaultInterval
                 else:
-                    self._dataQueue[name]._dataList.append(dataDict["value"])
+                    self._dataQueue[sensorName]._dataList.append(dataDict["value"])
                 
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
@@ -122,21 +159,25 @@ class DataPublisher(object):
         if __debug__:
             print("ndn:" + name + "/" + str(timestamp) + "\t:" + payload)
         return data
-
-    def pointNameToName(self, point):
-        try: 
-            comps = point.lower().split(":")[1].split(".")
-
-            # If the number of comps is more than 4, the extra parts will be concated together with comps[3] as a new comps[3].
-            if len(comps) > 4:
-                extraComps = "-".join(comps[3:])
-                name = self._namespace + "/" + "/".join(comps[0:3]) + "/" + extraComps
+    
+    # @param {Boolean} isAggregation, True for return sensorName/data/aggregation/type, False for return sensorName/data/raw/type
+    # @return {NDN name | None} None if asked for aggregation and string name entry is not found; NDN name is string entry is found, or can be inferred
+    def pointNameToNDNName(self, point, isAggregation = True):
+        name = point.lower().split(":")[1]
+        
+        # We expect failures in name transformation to be as little as possible; for our current historical data, 3 out of ~800 sensor names cannot be found
+        if (name in self._sensorNDNDict):
+            if isAggregation:
+                return self._sensorNDNDict[name]._aggregationName
             else:
-                name = self._namespace + "/" + "/".join(comps)
-        except Exception as detail:
-            print("publish: Error constructing name for", point, "-", detail)
-            return None
-        return name
+                return self._sensorNDNDict[name]._instName
+        else:
+            print("Sensor name " + name + " not found in dict, aggregation calculation skipped; raw publishing with assumed name")
+            if isAggregation:
+                return None
+            else:
+                return Name(name.replace('.', '/'))
+
 
     def pointToJSON(self, pd):
         d = {}
@@ -222,18 +263,18 @@ class Logger(object):
         return self.log
 
 def main(): 
+    # Params parsing
     parser = argparse.ArgumentParser(description='bms gateway node to Parse or follow Cascade Datahub log and publish to MiniNdn.')
     parser.add_argument('filename', help='datahub log file')
     parser.add_argument('-f', dest='follow', action='store_true', help='follow (tail -f) the log file')  
     parser.add_argument('--namespace', default='/ndn/edu/ucla/remap/bms', help='root of ndn name, no trailing slash')
     args = parser.parse_args()
-   
+    
+    # Setup logging
     logger = Logger()
     logger.prepareLogging()
 
-    #readfile(args.filename, args.namespace, None)
-    #sys.exit(1)
-    
+    # Face, KeyChain, memoryContentCache and asio event loop initialization
     loop = asyncio.get_event_loop()
     face = ThreadsafeFace(loop)
 
@@ -245,6 +286,9 @@ def main():
     dataPublisher = DataPublisher(face, keyChain, loop, cache, args.namespace)
     cache.registerPrefix(Name(args.namespace), dataPublisher.onRegisterFailed, dataPublisher.onDataNotFound)
     
+    # Parse csv to decide the mapping between sensor JSON -> <NDN name, data type>
+    dataPublisher.populateSensorNDNDictFromCSV('../bms-sensor-data-types.csv')
+
     if args.follow: 
         #asyncio.async(loop.run_in_executor(executor, followfile, args.filename, args.namespace, cache))
         loop.run_until_complete(dataPublisher.followfile(args.filename))

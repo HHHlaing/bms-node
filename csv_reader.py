@@ -10,11 +10,18 @@ import csv
 
 # Test function for sensor full name parsing
 
+class SensorDataDictItem(object):
+    def __init__(self, ndnNameString, dataType):
+        self._ndnNameString = ndnNameString
+        self._dataType = dataType
+
 class UniqueNameTailer(object):
     def __init__(self):
         self._nameDict = []
         #self._maxCount = 200
         self._maxCount = 9999999999
+
+        self._ndnNameDict = dict()
 
     def parseLine(self, line):
         try:
@@ -30,7 +37,7 @@ class UniqueNameTailer(object):
             print("publish: Date/time conversion error for", line, "-", detail)
             return
             
-        self.pointNameToName(point[0])
+        self.pointNameToNDNName(point[0])
         
     def readfile(self, filename):
         f = open(filename, 'r')
@@ -42,22 +49,10 @@ class UniqueNameTailer(object):
             count += 1
         f.close()
 
-    def pointNameToName(self, point):
-        try:
-            comps = point.lower().split(":")[1].split(".")
-
-            # If the number of comps is more than 3 , the extra parts will be concated together with comps[3] as a new comps[3].
-            maxCompNumber = 3
-            if len(comps) > maxCompNumber - 1:
-                extraComps = ".".join(comps[maxCompNumber - 1:])
-                
-                name = ".".join(comps[0:maxCompNumber - 1]) + "." + extraComps
-            else:
-                name = ".".join(comps)
-        except Exception as detail:
-            print("publish: Error constructing name for", point, "-", detail)
-            return None
-
+    def pointNameToNDNName(self, name):
+        name = name.lower().split(":")[1]
+        
+        # For test code
         if not name in self._nameDict:
             #print(name)
             self._nameDict.append(name)
@@ -68,7 +63,6 @@ def main():
     nameTailer = UniqueNameTailer()
     nameTailer.readfile('ucla-datahub-Feb2.log')
 
-    srcDict = dict()
 
     with open('bms-sensor-data-types.csv', 'rU') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')
@@ -88,10 +82,15 @@ def main():
                 key = ''
                 if (row[3] != ''):
                     key = row[2].lower().strip() + '.' + row[3].lower().strip() + '.' + row[4].lower().strip()
+                    ndnNameString = row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
+                    nameTailer._ndnNameDict[key] = SensorDataDictItem(ndnNameString, row[5])
                 else:
                     key = row[2].lower().strip() + '.' + row[4].lower().strip()
-                print(key)
-                srcDict[key] = row[5]
+                    ndnNameString = row[2].lower().strip()+ '/' + row[4].lower().strip()
+                    nameTailer._ndnNameDict[key] = SensorDataDictItem(ndnNameString, row[5])
+
+                if (row[5] == ''):
+                    print(key + ' does not have a data type')
 
             current += 1
 
@@ -101,7 +100,7 @@ def main():
 
     for item in nameTailer._nameDict:
         #print(item)
-        if (item in srcDict):
+        if (item in nameTailer._ndnNameDict):
             #print('Found ' + item)
             foundCnt += 1
         else:
