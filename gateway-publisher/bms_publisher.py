@@ -71,18 +71,21 @@ class DataPublisher(object):
                     # sensor full name, building name, room name, sensor name, sensor data type
                     #print(row[1], row[2], row[3], row[4], row[5])
                     key = ''
+                    dataType = "unknown_data_type";
+                    if (row[5] != ''):
+                        dataType = row[5]
                     if (row[3] != ''):
                         key = row[2].lower().strip() + '.' + row[3].lower().strip() + '.' + row[4].lower().strip()
                         ndnNameString = row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
-                        aggregationName = Name(ndnNameString).append('data').append(row[5]).append('aggregation')
-                        instName = Name(ndnNameString).append('data').append(row[5]).append('inst')
+                        aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
+                        instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
                         self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
                     else:
                         key = row[2].lower().strip() + '.' + row[4].lower().strip()
                         ndnNameString = row[2].lower().strip() + '/' + row[4].lower().strip()
-                        aggregationName = Name(ndnNameString).append('data').append(row[5]).append('aggregation')
-                        instName = Name(ndnNameString).append('data').append(row[5]).append('inst')
+                        aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
+                        instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
                         self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
 
