@@ -35,7 +35,7 @@ class DataPublisher(object):
         # Start time of this instance
         self._startTime = 0
         # Default aggregation interval in seconds
-        self._defaultInterval = 10
+        self._defaultInterval = 10000
         # Dictionary that holds the temporary data to calculate aggregation with
         # Key   - sensor name
         # Value - data list: [], list of sensor data
@@ -84,24 +84,23 @@ class DataPublisher(object):
                 #       bms_node code has adaptation for leaf sensor publishers as well, ref: example-sensor1.conf
 
                 # Here we make the assumption of fixed time window for *all* sensors
-                
+                dataTime = int(float(dataDict["timestamp"]) * 1000)
                 if self._startTime == 0:
-                    self._startTime = int(time.time())
+                    self._startTime = dataTime
                 if not (name in self._dataQueue):
                     self._dataQueue[name] = DataQueueItem([], self._startTime + self._defaultInterval)
                     self._dataQueue[name]._dataList.append(dataDict["value"])
-                elif dataDict["timestamp"] > self._dataQueue[name]._timeThreshold:
-                    
+                elif dataTime > self._dataQueue[name]._timeThreshold:
                     # calculate the aggregation with what's already in the queue, publish data packet, and delete current queue
                     # TODO: This should be mutex locked against self
                     if len(self._dataQueue[name]._dataList) > 0:
-                        avg = 0
+                        avg = 0.0
                         for item in self._dataQueue[name]._dataList:
-                            avg += item["value"]
+                            avg += float(item)
                         avg = avg / len(self._dataQueue[name]._dataList)
                         data = Data(Name(name).append(str(self._dataQueue[name]._timeThreshold)).append(str(self._dataQueue[name]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
-                        data.getMetaInfo.setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
+                        data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
                         self._cache.add(data)
                         print("Aggregation produced " + data.getName().toUri())
 
@@ -109,7 +108,6 @@ class DataPublisher(object):
                     self._dataQueue[name]._timeThreshold = self._dataQueue[name]._timeThreshold + self._defaultInterval
                 else:
                     self._dataQueue[name]._dataList.append(dataDict["value"])
-                
                 
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
