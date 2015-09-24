@@ -143,11 +143,14 @@ class BmsNode(object):
 			for childName in childrenList.keys():
 				name = Name(self.conf.getNodePrefix()).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 				interest = Interest(name)
+				# if start_time is specified, we ask for data starting at start_time; 
+				# if not, we ask for the right most child and go from there
 				if ('start_time' in childrenList[childName]):
 					endTime = int(childrenList[childName]['start_time']) + int(childrenList[childName]['producer_interval'])
 					interest.getName().append(str(childrenList[childName]['start_time'])).append(str(endTime))
 				else:
 					interest.setChildSelector(1)
+					interest.setMustBeFresh(True)
 				interest.setInterestLifetimeMilliseconds(DEFAULT_INTEREST_LIFETIME)
 				if __debug__:
 					print('  Issue interest: ' + interest.getName().toUri())
@@ -295,11 +298,19 @@ class BmsNode(object):
 		"""
 		return self.log
 
+def usage():
+	print("Usage: python bms_node.py --conf=[path to config file]")
+	return
+
 def main():
 	try:
 		opts, args = getopt.getopt(sys.argv[1:], "", ["conf="])
 	except getopt.GetoptError as err:
 		print err
+		usage()
+		sys.exit(2)
+	if (len(opts) == 0):
+		print("Error: missing required conf file")
 		usage()
 		sys.exit(2)
 	for o, a in opts:
@@ -315,7 +326,7 @@ def main():
 			finally:
 				bNode.stop()
 		else:
-			assert False, "unhandled option"
+			print("unhandled option")
 
 main()
 

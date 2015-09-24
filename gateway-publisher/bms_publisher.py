@@ -26,6 +26,24 @@ from pyndn.util.memory_content_cache import MemoryContentCache
 DEFAULT_DATA_LIFETIME = 2000000
 T = datetime.strptime("2015-02-05", "%Y-%m-%d")
 
+
+# Start time of this instance
+startTime = 0
+# Default aggregation interval in seconds
+defaultInterval = 10
+
+# Dictionary that holds the temporary data to calculate aggregation with
+# Key   - sensor name
+# Value - data list: [], list of sensor data
+#         timeThreshold: int, any data before this timestamp should be used for aggregation calculation; 
+#                             here we assume for each sensor, its data would come in order on this node
+dataQueue = dict()
+
+class DataQueueItem(object):
+    def __init__(self, dataList, timeThreshold):
+        self._dataList = dataList
+        self._timeThreshold = timeThreshold
+
 def publish(line, rootName, cache):
     global face, keyChain, T
     # Pull out and parse datetime for log entry 
@@ -51,10 +69,27 @@ def publish(line, rootName, cache):
         if dateTime < T: return
         print(dateTime, name, dataDict["timestamp"], "payload:", dataDict["value"])
         try:
+            # Timestamp in data name uses the timestamp from data paylaod
             dataTemp = createData(name, dataDict["timestamp"], dataDict["value"])
             print(dataTemp.getName().toUri())
             print(dataTemp.getContent().toRawStr())
             cache.add(dataTemp)
+
+            # TODO: since the leaf sensor publisher is not a separate node for now, we also publish aggregated data
+            #       of the same sensor over the past given time period in this code;
+            #       bms_node code has adaptation for leaf sensor publishers as well, ref: example-sensor1.conf
+
+            # Here we make the assumption of fixed time window for *all* sensors
+            if startTime == 0:
+                startTime = int(time.time())
+            if not (name in dataQueue):
+                dataQueue[name] = DataQueueItem([], startTime + defaultInterval)
+                dataQueue[name]._dataList.append(dataDict["value"])
+            elif dataDict["timestamp"] > dataQueue[name]._timeThreshold:
+                dataQueue[name]._timeThreshold = dataQueue[name]._timeThreshold + defaultInterval
+                # calculate the aggregation of what's already in the queue, publish data packet, and delete current queue
+            else:
+                dataQueue[name]._dataList.append(dataDict["value"])
             
         except Exception as detail:
             print("publish: Error calling createData for", line, "-", detail)
