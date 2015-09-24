@@ -137,7 +137,7 @@ class DataPublisher(object):
                         for item in self._dataQueue[sensorName]._dataList:
                             avg += float(item)
                         avg = avg / len(self._dataQueue[sensorName]._dataList)
-                        data = Data(Name(namePrefix).append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
+                        data = Data(Name(self._namespace).append(namePrefix).append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
                         self._cache.add(data)
@@ -151,13 +151,13 @@ class DataPublisher(object):
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
 
-    def createData(self, name, timestamp, payload):
-        data = Data(Name(name + "/" + str(timestamp))) 
+    def createData(self, namePrefix, timestamp, payload):
+        data = Data(Name(self._namespace).append(namePrefix).append(str(timestamp)))
         data.setContent(payload)
         #keyChain.sign(data, keyChain.getDefaultCertificateName())
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
         if __debug__:
-            print("ndn:" + name + "/" + str(timestamp) + "\t:" + payload)
+            print(data.getName().toUri())
         return data
     
     # @param {Boolean} isAggregation, True for return sensorName/data/aggregation/type, False for return sensorName/data/raw/type
@@ -287,7 +287,7 @@ def main():
     cache.registerPrefix(Name(args.namespace), dataPublisher.onRegisterFailed, dataPublisher.onDataNotFound)
     
     # Parse csv to decide the mapping between sensor JSON -> <NDN name, data type>
-    dataPublisher.populateSensorNDNDictFromCSV('../bms-sensor-data-types.csv')
+    dataPublisher.populateSensorNDNDictFromCSV('bms-sensor-data-types.csv')
 
     if args.follow: 
         #asyncio.async(loop.run_in_executor(executor, followfile, args.filename, args.namespace, cache))
