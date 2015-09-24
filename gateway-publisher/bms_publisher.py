@@ -91,7 +91,7 @@ def publish(line, rootName, cache):
                 # TODO: This should be mutex locked against self
                 if len(dataQueue[name]._dataList) > 0:
                     avg = 0
-                    for (item in dataQueue[name]._dataList):
+                    for item in dataQueue[name]._dataList:
                         avg += item["value"]
                     avg = avg / len(dataQueue[name]._dataList)
                     data = Data(Name(name).append(str(dataQueue[name]._timeThreshold)).append(str(dataQueue[name]._timeThreshold + defaultInterval)))
