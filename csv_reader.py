@@ -6,6 +6,7 @@ import json
 import logging
 from datetime import datetime
 
+import re
 import csv
 
 # Test function for sensor full name parsing
@@ -59,12 +60,30 @@ class UniqueNameTailer(object):
 
         return name
 
+def sanitizeCSVFileDataType(srcFileName, dstFileName):
+    with open(dstFileName, 'w') as dstFile:
+        writer = csv.writer(dstFile, delimiter=',', quotechar='|')
+
+        with open(srcFileName, 'rU') as srcFile:
+            reader = csv.reader(srcFile, delimiter=',', quotechar='|')
+
+            for row in reader:
+                if (len(row)) > 5:
+                    # Rule 1: convert "Electricity X - Instant Demand", "Electricity X", and "Electricity X - Demand" to "ElectricityDemand"
+                    row[5] = re.sub(r"^Electricity.*", "ElectricityDemand", row[5])
+                    print(row[5])
+                    writer.writerow(row)
+
 def main():
+    srcCSVName = 'bms-sensor-data-types.csv'
+    dstCSVName = 'bms-sensor-data-types-sanitized.csv'
+    
+    sanitizeCSVFileDataType(srcCSVName, dstCSVName)
+
     nameTailer = UniqueNameTailer()
     nameTailer.readfile('ucla-datahub-Feb2.log')
 
-
-    with open('bms-sensor-data-types.csv', 'rU') as csvfile:
+    with open(srcCSVName, 'rU') as csvfile:
         reader = csv.reader(csvfile, delimiter=',', quotechar='|')
 
         # limit = 10
@@ -90,7 +109,8 @@ def main():
                     nameTailer._ndnNameDict[key] = SensorDataDictItem(ndnNameString, row[5])
 
                 if (row[5] == ''):
-                    print(key + ' does not have a data type')
+                    #print(key + ' does not have a data type')
+                    pass
 
             current += 1
 
@@ -98,10 +118,10 @@ def main():
     foundCnt = 0
     notFoundCnt = 0
 
-    for item in nameTailer._nameDict:
+    for item in sorted(nameTailer._nameDict):
         #print(item)
         if (item in nameTailer._ndnNameDict):
-            #print('Found ' + item)
+            print(item + ';\t\ttype: ' + nameTailer._ndnNameDict[item]._dataType)
             foundCnt += 1
         else:
             print('Not found ' + item)
