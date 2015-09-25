@@ -6,6 +6,8 @@ import json
 import logging
 from datetime import datetime
 
+from base64 import b64decode, b64encode
+
 import subprocess
 import time
 import select
@@ -20,12 +22,13 @@ except ImportError:
 
 from pyndn import Name, Data
 from pyndn.threadsafe_face import ThreadsafeFace
-from pyndn.security import KeyChain
-#from pyndn.security.identity import FilePrivateKeyStorage, BasicIdentityStorage
-#from pyndn.security.identity import IdentityManager
 from pyndn.util.memory_content_cache import MemoryContentCache
 
-T = datetime.strptime("2015-02-05", "%Y-%m-%d")
+from pyndn.security import KeyChain
+from pyndn.security.identity.file_private_key_storage import FilePrivateKeyStorage
+from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
+from pyndn.security.identity.identity_manager import IdentityManager
+from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
 
 # Value of dictionary _sensorNDNDict
 #       key:    string, string name of sensor from given csv and received sensor data JSON
@@ -37,9 +40,11 @@ class SensorNDNDictItem(object):
         self._instName = instName
 
 class DataQueueItem(object):
-    def __init__(self, dataList, timeThreshold):
+    def __init__(self, dataList, timeThreshold, identityName, certificateName):
         self._dataList = dataList
         self._timeThreshold = timeThreshold
+        self._identityName = identityName
+        self._certificateName = certificateName
 
 class DataPublisher(object):
     def __init__(self, face, keyChain, loop, cache, namespace):
@@ -94,43 +99,41 @@ class DataPublisher(object):
         # (note we shoudld use point time for timestamp)
         try:
             if not ": (point" in line: return
-            dateTimeStr = parse.search("[{}]", line)[0]
             point = parse.search("(point {})", line)[0].split(" ")
         except Exception as detail:
             print("publish: Parse error for", line, "-", detail)
             return
         try:
-            dateTime = datetime.strptime(dateTimeStr, "%Y-%m-%d %H:%M:%S.%f")
+            tempTime = datetime.strptime(parse.search("[{}]", line)[0], "%Y-%m-%d %H:%M:%S.%f")
         except Exception as detail:
             print("publish: Date/time conversion error for", line, "-", detail)
             return
             
         sensorName = point[0]
-        namePrefix = self.pointNameToNDNName(sensorName)
+        aggregationNamePrefix = self.pointNameToNDNName(sensorName)
         dataDict = self.pointToJSON(point)
         
-        if namePrefix is not None:
-            #if dateTime < T: return
+        if aggregationNamePrefix is not None:
             #if __debug__:
-            #    print(dateTime, namePrefix, dataDict["timestamp"], "payload:", dataDict["value"])
+            #    print(dateTime, aggregationNamePrefix, dataDict["timestamp"], "payload:", dataDict["value"])
             try:
-                # Timestamp in data name uses the timestamp from data paylaod
-                dataTemp = self.createData(namePrefix, dataDict["timestamp"], dataDict["value"])
-                if __debug__:
-                    print("Produced raw data name " + dataTemp.getName().toUri())
-                    print("Produced raw data content " + dataTemp.getContent().toRawStr())
-                self._cache.add(dataTemp)
-
                 # TODO: since the leaf sensor publisher is not a separate node for now, we also publish aggregated data
                 #       of the same sensor over the past given time period in this code;
                 #       bms_node code has adaptation for leaf sensor publishers as well, ref: example-sensor1.conf
 
                 # Here we make the assumption of fixed time window for *all* sensors
+                # First publish aggregation
                 dataTime = int(float(dataDict["timestamp"]) * 1000)
                 if self._startTime == 0:
                     self._startTime = dataTime
                 if not (sensorName in self._dataQueue):
-                    self._dataQueue[sensorName] = DataQueueItem([], self._startTime + self._defaultInterval)
+                    # We don't have record of this sensor, so we create an identity for it, and print the cert string for now to get signed
+                    sensorIdentityName = Name(aggregationNamePrefix).getPrefix(-3)
+                    sensorCertificateName = self._keyChain.createIdentityAndCertificate(sensorIdentityName)
+                    print("Sensor identity name: " + sensorIdentityName.toUri())
+                    print("Sensor certificate string: " + b64encode(self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True).wireEncode().toBuffer()))
+
+                    self._dataQueue[sensorName] = DataQueueItem([], self._startTime + self._defaultInterval, sensorIdentityName, sensorCertificateName)
                     self._dataQueue[sensorName]._dataList.append(dataDict["value"])
                 elif dataTime > self._dataQueue[sensorName]._timeThreshold:
                     # calculate the aggregation with what's already in the queue, publish data packet, and delete current queue
@@ -140,9 +143,10 @@ class DataPublisher(object):
                         for item in self._dataQueue[sensorName]._dataList:
                             avg += float(item)
                         avg = avg / len(self._dataQueue[sensorName]._dataList)
-                        data = Data(Name(self._namespace).append(namePrefix).append("avg").append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
+                        data = Data(Name(self._namespace).append(aggregationNamePrefix).append("avg").append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
+                        self._keyChain.sign(data, self._dataQueue[sensorName]._certificateName)
                         self._cache.add(data)
                         print("Aggregation produced " + data.getName().toUri())
 
@@ -151,13 +155,21 @@ class DataPublisher(object):
                 else:
                     self._dataQueue[sensorName]._dataList.append(dataDict["value"])
                 
+                # Then publish raw data
+                # Timestamp in data name uses the timestamp from data paylaod
+                dataTemp = self.createData(aggregationNamePrefix, dataDict["timestamp"], dataDict["value"], self._dataQueue[sensorName]._certificateName)
+                if __debug__:
+                    print("Produced raw data name " + dataTemp.getName().toUri())
+                    print("Produced raw data content " + dataTemp.getContent().toRawStr())
+                self._cache.add(dataTemp)
+
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
 
-    def createData(self, namePrefix, timestamp, payload):
+    def createData(self, namePrefix, timestamp, payload, certName):
         data = Data(Name(self._namespace).append(namePrefix).append(str(timestamp)))
         data.setContent(payload)
-        #keyChain.sign(data, keyChain.getDefaultCertificateName())
+        keyChain.sign(data, certName)
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
         if __debug__:
             print(data.getName().toUri())
@@ -165,6 +177,7 @@ class DataPublisher(object):
     
     # @param {Boolean} isAggregation, True for return sensorName/data/aggregation/type, False for return sensorName/data/raw/type
     # @return {NDN name | None} None if asked for aggregation and string name entry is not found; NDN name is string entry is found, or can be inferred
+    #          Aggregation name looks like /ndn/app/bms/ucla/boelter/data/ElectricityDemand/aggregation/avg/140003200/140003210
     def pointNameToNDNName(self, point, isAggregation = True):
         name = point.lower().split(":")[1]
         
@@ -282,9 +295,10 @@ def main():
     loop = asyncio.get_event_loop()
     face = ThreadsafeFace(loop)
 
-    #keychain = KeyChain(IdentityManager(BasicIdentityStorage(), FilePrivateKeyStorage()))
-    keyChain = KeyChain()
-    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    keyChain = KeyChain(IdentityManager(BasicIdentityStorage(), FilePrivateKeyStorage()))
+    # For the gateway publisher, we create one identity for it to sign nfd command interests
+    certificateName = keyChain.createIdentityAndCertificate(Name("/ndn/bms/gateway-publisher"))
+    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName(certificateName))
     cache = MemoryContentCache(face)
 
     dataPublisher = DataPublisher(face, keyChain, loop, cache, args.namespace)
