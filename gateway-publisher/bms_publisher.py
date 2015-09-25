@@ -290,7 +290,7 @@ def main():
     cache.registerPrefix(Name(args.namespace), dataPublisher.onRegisterFailed, dataPublisher.onDataNotFound)
     
     # Parse csv to decide the mapping between sensor JSON -> <NDN name, data type>
-    dataPublisher.populateSensorNDNDictFromCSV('bms-sensor-data-types.csv')
+    dataPublisher.populateSensorNDNDictFromCSV('bms-sensor-data-types-sanitized.csv')
 
     if args.follow: 
         #asyncio.async(loop.run_in_executor(executor, followfile, args.filename, args.namespace, cache))
