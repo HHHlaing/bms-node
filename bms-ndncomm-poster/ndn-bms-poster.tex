@@ -28,6 +28,7 @@
 % Top and bottom rules for tables
 
 \usepackage{natbib}
+\usepackage{url}
 % added for bibtex
 
 \graphicspath{{figures/}} 
@@ -72,27 +73,28 @@
 \begin{block}{Introduction}
 
 Building management system (BMS) is a sensor data acquisition system which automatically manages a building's heating, ventilation and air conditioning, and other systems. \newline
-An NDN based BMS leverages the architecture's advantages in hierarchical data naming and name-based routing and forwarding, in-network caching, and inherent security support, and may overcome the challenges IP faced, namely complexity of network addressing and configuration, reliance on middleware, and a lack of security \cite{wentao-bms}. \newline
-This summer's work focuses on the data aggregation and signing/verification in NDN BMS, and updates the previous work by Wentao.
+An NDN based BMS leverages the architecture's advantages in hierarchical data naming and name-based routing and forwarding, in-network caching, and inherent security support, and may overcome the challenges IP faced, namely complexity of network addressing and configuration, reliance on middleware, and a lack of security. \newline
+This summer's work focuses on the data aggregation and signing/verification in NDN BMS, and updates the previous work by Wentao \cite{wentao-bms}.
 
 \end{block}
 
 %----------------------------------------------------------------------------------------
-%	Design Objectives
+%	Objectives
 %----------------------------------------------------------------------------------------
 
-\begin{block}{Design Objectives}
+\begin{block}{Objectives}
 
 \begin{itemize}
-\item{Hierarchical storage and aggregation}
+\item{Provide campus, building, and department-level monitoring and query possibility}
+\begin{itemize}
+\item{Data hierarchical storage and aggregation}
+
+Design a hierarchical storage approach and a stream-based approach to calculating aggregates, distributing processing and taking advantage of local storage.
+\item{Data signing and verification}
 \end{itemize}
-Objective: Design a hierarchical storage approach and a stream-based approach to calculaIng aggregates, distribuIng processing and taking advantage of local storage.
+\end{itemize}
 
 % Quoted from summer opening slides by Wentao and Jeff
-
-\begin{itemize}
-\item{BMS data signing and verification}
-\end{itemize}
 
 \end{block}
 
@@ -102,33 +104,36 @@ Objective: Design a hierarchical storage approach and a stream-based approach to
 
 \begin{block}{Design Overview}
 
-Figure \ref{fig:namespace} illustrates the namespace of the BMS application, and Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data.
+Figure \ref{fig:namespace} illustrates the namespace of the BMS application;
 
 \begin{figure}
-\includegraphics[width=0.8\linewidth]{bms-namespace-update-Sep19}
+\includegraphics[width=0.9\linewidth]{bms-namespace-update-Sep19}
 \caption{BMS namespace}
 \label{fig:namespace}
 \end{figure}
 
-
 \begin{columns}[T]
 
-\begin{column}{.45\textwidth}
+\begin{column}{.42\textwidth}
 \begin{itemize}
-\item{Physical location branch represents the hierarchical structure of BMS data, organized in Campus - Building - Room - Device}
-\item{User branch records the list of BMS user identities, to be used by GBE later}
+\item{Physical location branch represents the hierarchical structure of BMS data: Campus - Building - Room - Device}
+\item{User branch records the list of BMS user identities, which can be used for access control}
 \end{itemize}
 \end{column}
 
-\begin{column}{.50\textwidth}
+\begin{column}{.55\textwidth}
 \begin{figure}
-\includegraphics[width=0.9\linewidth]{bms-example-name}
+\includegraphics[width=\linewidth]{bms-example-name}
 \caption{Example BMS data name}
 \label{fig:example-name}
 \end{figure}
 \end{column}
 
 \end{columns}
+
+\vspace{15mm}
+
+Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data.
 
 \end{block}
 
@@ -140,15 +145,15 @@ Figure \ref{fig:namespace} illustrates the namespace of the BMS application, and
 
 \begin{columns}[T]
 
-\begin{column}{.45\textwidth}
+\begin{column}{.42\textwidth}
 \begin{itemize}
 \item{Leaf nodes publish aggregated data at fixed time window.}
 \item{Non-leaf aggregate the data after all children respond, and publish data with the same time window.}
-\item{Long lived interests for fixed time window moves data across layers.}
+\item{Long lived interests with received start time excluded moves data across layers.}
 \end{itemize}
 \end{column}
 
-\begin{column}{.50\textwidth}
+\begin{column}{.56\textwidth}
 \begin{figure}
 \includegraphics[width=\linewidth]{bms-move-aggregate-sequence}
 \caption{BMS move aggregation sequence}
@@ -171,45 +176,35 @@ Figure \ref{fig:namespace} illustrates the namespace of the BMS application, and
 %	Trust Schema
 %----------------------------------------------------------------------------------------
 
-\begin{block}{Trust Schema and Bootstrapping}
+\begin{block}{Trust Schema}
+
+Signing and Verification
 
 \begin{itemize}
-\item{BMS data should be verified hierarchically}
+\item{BMS data is verified hierarchically}
 \item{The certificates of BMS children node should be signed by their parent nodes in the tree}
-\item{Campus certificate is the root of trust for BMS data and user. (not so in namespace)}
+\item{Campus certificate is the root of trust for BMS data and user.}
 \end{itemize}
 
-\begin{columns}[T]
-
-\begin{column}{.25\textwidth}
-
 \begin{figure}
-\includegraphics[width=\linewidth]{trust-schema-data.png}
-\label{fig:trust-schema-data}
+\includegraphics[width=0.95\linewidth]{bms-signing-verification}
+\caption{Example of signing in BMS}
+\label{fig:bms-signing-example}
 \end{figure}
-\end{column}
 
-\begin{column}{.63\textwidth}
-\begin{figure}
-\includegraphics[width=\linewidth]{trust-schema-nodes.png}
-\label{fig:trust-schema-nodes}
-\end{figure}
-\end{column}
-
-\end{columns}
-
-\vspace{18mm}
+Bootstrap
 
 \begin{columns}[T]
 
-\begin{column}{.26\textwidth}
+\begin{column}{.35\textwidth}
+
 \begin{itemize}
-\item{Bootstrap:}
+\item{Child node obtains a signed certificate from its parent.}
+\item{Bootstrapping process from ndn-pi, illustrated in Figure \ref{fig:add-child-sequence}, can be used for this process.}
 \end{itemize}
-Each BMS children node should obtain a valid certificate from the parent when joining the network for the first time. Figure \ref{fig:add-child-sequence} illustrates this process.
 \end{column}
 
-\begin{column}{.66\textwidth}
+\begin{column}{.65\textwidth}
 \begin{figure}
 \includegraphics[width=\linewidth]{bms-add-child-sequence}
 \caption{BMS add child sequence}
@@ -227,28 +222,39 @@ Each BMS children node should obtain a valid certificate from the parent when jo
 
 \begin{block}{Demo Implementation}
 
-As illustrated in Figure \ref{fig:node-structure}, we are running BMS aggregation nodes in mini-ndn, with connection to the NDN testbed and BMS data publisher gateway node. \newline
-An in-browser visualization interface, as demonstrated in Figure \ref{fig:bms-ui} is being developed.
+We run BMS aggregation nodes in mini-ndn as an experiment.
+
+\begin{itemize}
+\item{Mini-ndn is a mininet based emulation tool that enables easy deployment and configuration of NDN nodes. \cite{minindn-github}}
+\item{Each mini-ndn node has its own forwarder, and runs as a BMS node (for example, Room b217 in Young Hall).}
+\item{BMS nodes in mini-ndn connects to UCLA's gateway sensor data publisher, and to the testbed}
+\end{itemize}
+
+Figure \ref{fig:node-structure} illustrates the structure of our deployment.
 
 \begin{columns}[T]
 
-\begin{column}{.44\textwidth}
+\begin{column}{.47\textwidth}
 \begin{figure}
-\includegraphics[width=1\linewidth]{bms-nodes-structure}
+\includegraphics[width=\linewidth]{bms-nodes-structure}
 \caption{BMS deployment structure}
 \label{fig:node-structure}
 \end{figure}
 \end{column}
 
-\begin{column}{.48\textwidth}
+\begin{column}{.51\textwidth}
 \begin{figure}
 \includegraphics[width=\linewidth]{bms-ui-demo.png}
-\caption{BMS UI demo}
+\caption{BMS browser UI demo}
 \label{fig:bms-ui}
 \end{figure}
 \end{column}
 
 \end{columns}
+
+\vspace{10mm}
+
+An in-browser consumer and visualization interface, as demonstrated in Figure \ref{fig:bms-ui} is being developed.
 
 \end{block}
 
@@ -258,9 +264,9 @@ An in-browser visualization interface, as demonstrated in Figure \ref{fig:bms-ui
 
 \begin{block}{Future Work}
 \begin{itemize}
-\item Access control / GBE in BMS
+\item Access control in BMS
 \item In-browser consumer interface
-\item Namespace update? Mentioned earlier about some unresolved issues?
+\item BMS command namespace
 \end{itemize}
 \end{block}
 
@@ -281,15 +287,15 @@ An in-browser visualization interface, as demonstrated in Figure \ref{fig:bms-ui
 %	CONTACT INFORMATION
 %----------------------------------------------------------------------------------------
 
-\setbeamercolor{block title}{fg=black,bg=orange!70} % Change the block title color
+% \setbeamercolor{block title}{fg=black,bg=orange!70} % Change the block title color
 
-\begin{block}{Contact Information}
+% \begin{block}{Contact Information}
 
-\begin{itemize}
-\item Email: \href{mailto:zhehao@remap.ucla.edu}{zhehao@remap.ucla.edu}
-\end{itemize}
+% \begin{itemize}
+% \item Email: \href{mailto:zhehao@remap.ucla.edu}{zhehao@remap.ucla.edu}
+% \end{itemize}
 
-\end{block}
+% \end{block}
 
 %----------------------------------------------------------------------------------------
 
