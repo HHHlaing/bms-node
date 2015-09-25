@@ -154,6 +154,7 @@ class BmsNode(object):
 		self._dataQueue[dataType + aggregationType] = DataQueue(params, childrenList, publishingPrefix)
 
 		if len(childrenList.keys()) == 0:
+			# TODO: make start_time optional for leaf nodes
 			self._loop.call_later(int(params['producer_interval']), self.calculateAggregation, dataType, aggregationType, childrenList, int(params['start_time']), int(params['producer_interval']), publishingPrefix, True)
 		else:
 			# express interest for children who produce the same data and aggregation type
