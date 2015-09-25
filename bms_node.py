@@ -248,13 +248,16 @@ class BmsNode(object):
 		newInterestName = dataName.getPrefix(i + 2).append(str(endTime)).append(str(endTime + (endTime - startTime)))
 		newInterest = Interest(interest)
 		interest.setName(newInterestName)
+		# TODO: we always expect something to be produced for our given time period, which is usually not the case
 		self._face.expressInterest(interest, self.onData, self.onTimeout)
+		if __debug__:
+		    print("  issue interest: " + interest.getName().toUri())
 
 		return
 
 	def onTimeout(self, interest):
 		if __debug__:
-			#print("interest timeout: " + interest.getName().toUri())
+			print("  interest timeout: " + interest.getName().toUri() + "; reexpress")
 			pass
 		self._face.expressInterest(interest, self.onData, self.onTimeout)
 		return
