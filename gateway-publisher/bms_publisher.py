@@ -213,6 +213,7 @@ class DataPublisher(object):
         f = open(filename, 'r')
         for line in f:
             self.publish(line)
+            yield None
         f.close()
         
     @asyncio.coroutine
@@ -297,7 +298,7 @@ def main():
         loop.run_until_complete(dataPublisher.followfile(args.filename))
     else:
         loop.run_until_complete(dataPublisher.readfile(args.filename))
-
+        
     loop.run_forever()
     face.shutdown()
         
