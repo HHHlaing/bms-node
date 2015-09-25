@@ -5,7 +5,7 @@ import logging
 import random
 
 from collections import OrderedDict
-from pyndn import Name, Data, Interest
+from pyndn import Name, Data, Interest, Exclude
 from pyndn.threadsafe_face import ThreadsafeFace
 
 from pyndn.security import KeyChain
@@ -22,7 +22,7 @@ from config_split import BoostInfoParser
 # TODO: start aggregation with rightMostChild mode, non-mandatory child's data
 
 # Program constants
-DEFAULT_INTEREST_LIFETIME = 6000
+DEFAULT_INTEREST_LIFETIME = 2000
 DEFAULT_DATA_LIFETIME = 2000000
 
 # Namespace constants
@@ -149,7 +149,8 @@ class BmsNode(object):
 					endTime = int(childrenList[childName]['start_time']) + int(childrenList[childName]['producer_interval'])
 					interest.getName().append(str(childrenList[childName]['start_time'])).append(str(endTime))
 				else:
-					interest.setChildSelector(1)
+					# TODO: For now we are playing with historical data, for each run we don't want to miss any data, thus we start with leftMost
+					interest.setChildSelector(0)
 					interest.setMustBeFresh(True)
 				interest.setInterestLifetimeMilliseconds(DEFAULT_INTEREST_LIFETIME)
 				if __debug__:
@@ -245,11 +246,20 @@ class BmsNode(object):
 			self.calculateAggregation(dataType, aggregationType, dataQueue._childrenList, startTime, endTime - startTime, dataQueue._publishingPrefix)
 
 		# Always ask for the next piece of data when we receive this one; assumes interval does not change; this also assumes there are no more components after endTime
-		newInterestName = dataName.getPrefix(i + 2).append(str(endTime)).append(str(endTime + (endTime - startTime)))
+		#newInterestName = dataName.getPrefix(i + 2).append(str(endTime)).append(str(endTime + (endTime - startTime)))
+		
+		# We don't expect aggregated data name to be continuous within our given time window, so we ask with exclusion instead
+		newInterestName = dataName.getPrefix(i + 2)
 		newInterest = Interest(interest)
-		interest.setName(newInterestName)
-		# TODO: we always expect something to be produced for our given time period, which is usually not the case
-		self._face.expressInterest(interest, self.onData, self.onTimeout)
+		newInterest.setName(newInterestName)
+		newInterest.setChildSelector(0)
+
+		exclude = Exclude()
+		exclude.appendAny()
+		exclude.appendComponent(dataName.get(i + 2))
+		newInterest.setExclude(exclude)
+
+		self._face.expressInterest(newInterest, self.onData, self.onTimeout)
 		if __debug__:
 		    print("  issue interest: " + interest.getName().toUri())
 
