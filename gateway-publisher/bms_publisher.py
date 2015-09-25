@@ -140,7 +140,7 @@ class DataPublisher(object):
                         for item in self._dataQueue[sensorName]._dataList:
                             avg += float(item)
                         avg = avg / len(self._dataQueue[sensorName]._dataList)
-                        data = Data(Name(self._namespace).append(namePrefix).append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
+                        data = Data(Name(self._namespace).append(namePrefix).append("avg").append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
                         self._cache.add(data)
