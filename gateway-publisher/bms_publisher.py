@@ -156,8 +156,9 @@ class DataPublisher(object):
                     self._dataQueue[sensorName]._dataList.append(dataDict["value"])
                 
                 # Then publish raw data
-                # Timestamp in data name uses the timestamp from data paylaod
-                dataTemp = self.createData(aggregationNamePrefix, dataDict["timestamp"], dataDict["value"], self._dataQueue[sensorName]._certificateName)
+                # Timestamp in data name uses the timestamp from data payload
+                instDataPrefix = self.pointNameToNDNName(sensorName, False)
+                dataTemp = self.createData(instDataPrefix, dataDict["timestamp"], dataDict["value"], self._dataQueue[sensorName]._certificateName)
                 if __debug__:
                     print("Produced raw data name " + dataTemp.getName().toUri())
                     print("Produced raw data content " + dataTemp.getContent().toRawStr())
