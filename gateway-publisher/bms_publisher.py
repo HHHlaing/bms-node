@@ -138,13 +138,13 @@ class DataPublisher(object):
                     # We don't have record of this sensor, so we create an identity for it, and print the cert string for now to get signed
                     sensorIdentityName = Name(self._namespace).append(aggregationNamePrefix).getPrefix(-3)
                     sensorCertificateName = self._keyChain.createIdentityAndCertificate(sensorIdentityName)
-                    print("Sensor identity name: " + sensorIdentityName.toUri())
+                    if __debug__:
+                        print("Sensor identity name: " + sensorIdentityName.toUri())
                     certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True)
-                    print("Sensor certificate string: " + b64encode(certificateData.wireEncode().toBuffer()))
 
+                    # We should only ask for cert to be signed upon the first run of a certain sensor
                     if DO_CERT_SETUP:
                         if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
-                            print("Self signed cert; should ask for signature from CA")
                             response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
                             
                             signedCertData = Data()
@@ -169,7 +169,6 @@ class DataPublisher(object):
                         data = Data(Name(self._namespace).append(aggregationNamePrefix).append("avg").append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
-                        print("signing with certificate: " + self._dataQueue[sensorName]._certificateName.toUri())
                         self._keyChain.sign(data, self._dataQueue[sensorName]._certificateName)
                         self._cache.add(data)
                         print("Aggregation produced " + data.getName().toUri())
