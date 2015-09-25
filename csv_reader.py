@@ -71,6 +71,8 @@ def sanitizeCSVFileDataType(srcFileName, dstFileName):
                 if (len(row)) > 5:
                     # Rule 1: convert "Electricity X - Instant Demand", "Electricity X", and "Electricity X - Demand" to "ElectricityDemand"
                     row[5] = re.sub(r"^Electricity.*", "ElectricityDemand", row[5])
+                    # Rule 2: remove all white spaces
+                    row[5] = row[5].replace(' ', '')
                     print(row[5])
                     writer.writerow(row)
 
