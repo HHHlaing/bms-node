@@ -128,7 +128,7 @@ class DataPublisher(object):
                     self._startTime = dataTime
                 if not (sensorName in self._dataQueue):
                     # We don't have record of this sensor, so we create an identity for it, and print the cert string for now to get signed
-                    sensorIdentityName = Name(aggregationNamePrefix).getPrefix(-3)
+                    sensorIdentityName = Name(self._namespace).append(aggregationNamePrefix).getPrefix(-3)
                     sensorCertificateName = self._keyChain.createIdentityAndCertificate(sensorIdentityName)
                     print("Sensor identity name: " + sensorIdentityName.toUri())
                     print("Sensor certificate string: " + b64encode(self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True).wireEncode().toBuffer()))
@@ -169,7 +169,7 @@ class DataPublisher(object):
     def createData(self, namePrefix, timestamp, payload, certName):
         data = Data(Name(self._namespace).append(namePrefix).append(str(timestamp)))
         data.setContent(payload)
-        keyChain.sign(data, certName)
+        self._keyChain.sign(data, certName)
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
         if __debug__:
             print(data.getName().toUri())
@@ -298,7 +298,7 @@ def main():
     keyChain = KeyChain(IdentityManager(BasicIdentityStorage(), FilePrivateKeyStorage()))
     # For the gateway publisher, we create one identity for it to sign nfd command interests
     certificateName = keyChain.createIdentityAndCertificate(Name("/ndn/bms/gateway-publisher"))
-    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName(certificateName))
+    face.setCommandSigningInfo(keyChain, certificateName)
     cache = MemoryContentCache(face)
 
     dataPublisher = DataPublisher(face, keyChain, loop, cache, args.namespace)
