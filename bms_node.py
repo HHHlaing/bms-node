@@ -4,11 +4,18 @@ import sys
 import logging
 import random
 
+from base64 import b64decode, b64encode
+
 from collections import OrderedDict
 from pyndn import Name, Data, Interest, Exclude
 from pyndn.threadsafe_face import ThreadsafeFace
 
 from pyndn.security import KeyChain
+from pyndn.security.identity.file_private_key_storage import FilePrivateKeyStorage
+from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
+from pyndn.security.identity.identity_manager import IdentityManager
+from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
+
 from pyndn.util.common import Common
 from pyndn.util import MemoryContentCache
 
@@ -74,38 +81,48 @@ class BmsNode(object):
 		self._keyChain = None
 		self._certificateName = None
 
-		self._tempName = None
-		self._tempData = None
-
 		self._dataQueue = dict()
 		self._memoryContentCache = None
+		self._identityName = None
 
 		self._aggregation = Aggregation()
 
 	def setConfiguration(self, fileName):
 		self.conf = BoostInfoParser()
 		self.conf.read(fileName)
+		self._identityName = Name(self.conf.getNodePrefix())
 
 	def onDataNotFound(self, prefix, interest, face, interestFilterId, filter):
 		#print('Data not found for ' + interest.getName().toUri())
 		return
 
 	def startPublishing(self):
+		# One-time security setup
 		self.prepareLogging()
-		self._keyChain = KeyChain()
+
+		privateKeyStorage = FilePrivateKeyStorage()
+		identityStorage = BasicIdentityStorage()
+		policyManager = ConfigPolicyManager("trust_schema.conf")
+
+		self._keyChain = KeyChain(IdentityManager(identityStorage, privateKeyStorage), policyManager)
+		self._certificateName = self._keyChain.createIdentityAndCertificate(self._identityName)
+
+		print("My Identity name: " + self._identityName.toUri())
+		print("My certificate name: " + self._certificateName.toUri())
+		print("My certificate string: " + b64encode(self._keyChain.getIdentityManager()._identityStorage.getCertificate(self._certificateName, True).wireEncode().toBuffer()))
+        # self._keyChain.getIdentityCertificate(self._certificateName).)
 
 		self._loop = asyncio.get_event_loop()
 		self._face = ThreadsafeFace(self._loop)
+		self._keyChain.setFace(self._face)
 
-		self._face.setCommandSigningInfo(self._keyChain, self._keyChain.getDefaultCertificateName())
+		self._face.setCommandSigningInfo(self._keyChain, self._certificateName)
 		self._memoryContentCache = MemoryContentCache(self._face)
 
 		dataNode = self.conf.getDataNode()
 		childrenNode = self.conf.getChildrenNode()
 
-		print(self.conf.getNodePrefix())
-
-		self._memoryContentCache.registerPrefix(Name(self.conf.getNodePrefix()), self.onRegisterFailed, self.onDataNotFound)
+		self._memoryContentCache.registerPrefix(Name(self._identityName), self.onRegisterFailed, self.onDataNotFound)
 
 		# For each type of data, we refresh each type of aggregation according to the interval in the configuration
 		for i in range(len(dataNode.subtrees)):
@@ -133,7 +150,7 @@ class BmsNode(object):
 			print('Start publishing for ' + dataType + '-' + aggregationType)
 		
 		# aggregation calculating and publishing mechanism
-		publishingPrefix = Name(self.conf.getNodePrefix()).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
+		publishingPrefix = Name(self._identityName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 		self._dataQueue[dataType + aggregationType] = DataQueue(params, childrenList, publishingPrefix)
 
 		if len(childrenList.keys()) == 0:
@@ -141,7 +158,7 @@ class BmsNode(object):
 		else:
 			# express interest for children who produce the same data and aggregation type
 			for childName in childrenList.keys():
-				name = Name(self.conf.getNodePrefix()).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
+				name = Name(self._identityName).append(childName).append(DATA_COMPONENT).append(dataType).append(AGGREGATION_COMPONENT).append(aggregationType)
 				interest = Interest(name)
 				# if start_time is specified, we ask for data starting at start_time; 
 				# if not, we ask for the right most child and go from there
@@ -219,7 +236,17 @@ class BmsNode(object):
 	def onRegisterFailed(self, prefix):
 		raise RuntimeError("Register failed for prefix", prefix.toUri())
 
+	def onVerified(self, data):
+		print('Data verified: ' + data.getName().toUri())
+		return
+
+	def onVerifyFailed(self, data):
+		print('Data verification failed: ' + data.getName().toUri())
+		return
+
 	def onData(self, interest, data):
+		self._keyChain.verifyData(data, self.onVerified, self.onVerifyFailed)
+
 		dataName = data.getName()
 		dataQueue = None
 
