@@ -20,15 +20,23 @@ except ImportError:
     import trollius as asyncio
     from concurrent.futures import ProcessPoolExecutor
 
-from pyndn import Name, Data
+from pyndn import Name, Data, KeyLocator
 from pyndn.threadsafe_face import ThreadsafeFace
 from pyndn.util.memory_content_cache import MemoryContentCache
+from pyndn.util import Blob
 
 from pyndn.security import KeyChain
 from pyndn.security.identity.file_private_key_storage import FilePrivateKeyStorage
 from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
 from pyndn.security.identity.identity_manager import IdentityManager
 from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
+
+DO_CERT_SETUP = True
+
+# Syntax for Python 2, quick hack for getting everyone signed
+if DO_CERT_SETUP:                    
+    import urllib2
+
 
 # Value of dictionary _sensorNDNDict
 #       key:    string, string name of sensor from given csv and received sensor data JSON
@@ -131,7 +139,22 @@ class DataPublisher(object):
                     sensorIdentityName = Name(self._namespace).append(aggregationNamePrefix).getPrefix(-3)
                     sensorCertificateName = self._keyChain.createIdentityAndCertificate(sensorIdentityName)
                     print("Sensor identity name: " + sensorIdentityName.toUri())
-                    print("Sensor certificate string: " + b64encode(self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True).wireEncode().toBuffer()))
+                    certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True)
+                    print("Sensor certificate string: " + b64encode(certificateData.wireEncode().toBuffer()))
+
+                    if DO_CERT_SETUP:
+                        if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
+                            print("Self signed cert; should ask for signature from CA")
+                            response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
+                            
+                            signedCertData = Data()
+                            signedCertData.wireDecode(Blob(b64decode(response)))
+
+                            self._cache.add(signedCertData)
+                        else:
+                            self._cache.add(certificateData)
+                    else:
+                        self._cache.add(certificateData)
 
                     self._dataQueue[sensorName] = DataQueueItem([], self._startTime + self._defaultInterval, sensorIdentityName, sensorCertificateName)
                     self._dataQueue[sensorName]._dataList.append(dataDict["value"])
@@ -146,6 +169,7 @@ class DataPublisher(object):
                         data = Data(Name(self._namespace).append(aggregationNamePrefix).append("avg").append(str(self._dataQueue[sensorName]._timeThreshold)).append(str(self._dataQueue[sensorName]._timeThreshold + self._defaultInterval)))
                         data.setContent(str(avg))
                         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
+                        print("signing with certificate: " + self._dataQueue[sensorName]._certificateName.toUri())
                         self._keyChain.sign(data, self._dataQueue[sensorName]._certificateName)
                         self._cache.add(data)
                         print("Aggregation produced " + data.getName().toUri())
@@ -251,7 +275,7 @@ class DataPublisher(object):
         raise RuntimeError("Register failed for prefix", prefix.toUri())
 
     def onDataNotFound(self, prefix, interest, face, interestFilterId, filter):
-        print('DataNotFound')
+        print('DataNotFound : ' + interest.getName().toUri())
         return
 
 class Logger(object):
