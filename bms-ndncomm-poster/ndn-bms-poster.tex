@@ -41,7 +41,7 @@
 %	TITLE SECTION 
 %----------------------------------------------------------------------------------------
 
-\title{\huge Hierarchical Storage for Building Management System}
+\title{\huge Hierarchical Storage for NDN Building Management System}
 % Title
 
 \author[AuthorNames]{Zhehao Wang\inst{1}, Jiayi Meng\inst{2}, Jeff Burke\inst{3}}
@@ -72,8 +72,8 @@
 
 \begin{block}{Introduction}
 
-Building management system (BMS) is a sensor data acquisition system which automatically manages a building's heating, ventilation and air conditioning, and other systems. \newline
-An NDN based BMS leverages the architecture's advantages in hierarchical data naming and name-based routing and forwarding, in-network caching, and inherent security support, and may overcome the challenges IP faced, namely complexity of network addressing and configuration, reliance on middleware, and a lack of security. \newline
+Building management system (BMS) is a sensor data acquisition system which automatically manages a building's heating, ventilation, air conditioning, and other systems. \newline
+An NDN based BMS leverages the architecture's advantages in hierarchical data naming and name-based routing and forwarding, in-network caching, and inherent security support. It may overcome the challenges IP faced, namely the complexity of network addressing and configuration, reliance on middleware, and a lack of security. \newline
 This summer's work focuses on the data aggregation and signing/verification in NDN BMS, and updates the previous work by Shang et al. \cite{wentao-bms}.
 
 \end{block}
@@ -87,9 +87,7 @@ This summer's work focuses on the data aggregation and signing/verification in N
 \begin{itemize}
 \item{Provide campus, building, and department-level monitoring and query possibility}
 \begin{itemize}
-\item{Data hierarchical storage and aggregation}
-
-Design a hierarchical storage approach and a stream-based approach to calculating aggregates, distributing processing and taking advantage of local storage.
+\item{Design a hierarchical storage approach and a stream-based approach to calculating aggregates, distributing processing and taking advantage of local storage.}
 \item{Data signing and verification}
 \end{itemize}
 \end{itemize}
@@ -116,8 +114,8 @@ Figure \ref{fig:namespace} illustrates the namespace of the BMS application;
 
 \begin{column}{.42\textwidth}
 \begin{itemize}
-\item{Physical location branch represents the hierarchical structure of BMS data: Campus - Building - Room - Device}
-\item{User branch records the list of BMS user identities, which can be used for access control}
+\item{Name components in ``campus'' branch represent the hierarchical structure of BMS data, organized as Campus - Building - Room - Device}
+\item{``User'' branch records the list of BMS user identities, which can be used for access control}
 \end{itemize}
 \end{column}
 
@@ -147,8 +145,8 @@ Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data
 
 \begin{column}{.42\textwidth}
 \begin{itemize}
-\item{Leaf nodes publish aggregated data at fixed time window}
-\item{Non-leaf aggregate the data after all children respond, and publish data with the same time window}
+\item{Leaf nodes publish aggregated data in a fixed time window}
+\item{Non-leaf nodes aggregate the data after all children respond, and publish data within the same time window}
 \item{Long lived interests with received start time excluded moves data across layers}
 \end{itemize}
 \end{column}
@@ -182,7 +180,7 @@ Signing and Verification
 
 \begin{itemize}
 \item{BMS data is verified hierarchically}
-\item{The certificates of BMS children node should be signed by their parent nodes in the tree}
+\item{The certificates of the BMS children nodes should be signed by the parent nodes}
 \item{Campus certificate is the root of trust for BMS data and user}
 \end{itemize}
 
@@ -226,7 +224,7 @@ We run BMS aggregation nodes in mini-ndn as an experiment.
 
 \begin{itemize}
 \item{Mini-ndn is a mininet based emulation tool that enables easy deployment and configuration of NDN nodes \cite{minindn-github}}
-\item{Each mini-ndn node has its own forwarder, and runs as a BMS node (for example, Room b217 in Young Hall)}
+\item{Each mini-ndn node has its own forwarder, and runs as a BMS node (for example, Room B217 in Young Hall)}
 \item{BMS nodes in mini-ndn connects to UCLA's gateway sensor data publisher, and to the testbed}
 \end{itemize}
 
@@ -255,6 +253,8 @@ Figure \ref{fig:node-structure} illustrates the structure of our deployment.
 \vspace{10mm}
 
 An in-browser consumer and visualization interface, as demonstrated in Figure \ref{fig:bms-ui} is being developed.
+
+\vspace{10mm}
 
 \end{block}
 
