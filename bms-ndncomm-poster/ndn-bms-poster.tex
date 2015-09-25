@@ -74,7 +74,7 @@
 
 Building management system (BMS) is a sensor data acquisition system which automatically manages a building's heating, ventilation and air conditioning, and other systems. \newline
 An NDN based BMS leverages the architecture's advantages in hierarchical data naming and name-based routing and forwarding, in-network caching, and inherent security support, and may overcome the challenges IP faced, namely complexity of network addressing and configuration, reliance on middleware, and a lack of security. \newline
-This summer's work focuses on the data aggregation and signing/verification in NDN BMS, and updates the previous work by Wentao \cite{wentao-bms}.
+This summer's work focuses on the data aggregation and signing/verification in NDN BMS, and updates the previous work by Shang et al. \cite{wentao-bms}.
 
 \end{block}
 
@@ -147,9 +147,9 @@ Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data
 
 \begin{column}{.42\textwidth}
 \begin{itemize}
-\item{Leaf nodes publish aggregated data at fixed time window.}
-\item{Non-leaf aggregate the data after all children respond, and publish data with the same time window.}
-\item{Long lived interests with received start time excluded moves data across layers.}
+\item{Leaf nodes publish aggregated data at fixed time window}
+\item{Non-leaf aggregate the data after all children respond, and publish data with the same time window}
+\item{Long lived interests with received start time excluded moves data across layers}
 \end{itemize}
 \end{column}
 
@@ -183,7 +183,7 @@ Signing and Verification
 \begin{itemize}
 \item{BMS data is verified hierarchically}
 \item{The certificates of BMS children node should be signed by their parent nodes in the tree}
-\item{Campus certificate is the root of trust for BMS data and user.}
+\item{Campus certificate is the root of trust for BMS data and user}
 \end{itemize}
 
 \begin{figure}
@@ -199,8 +199,8 @@ Bootstrap
 \begin{column}{.35\textwidth}
 
 \begin{itemize}
-\item{Child node obtains a signed certificate from its parent.}
-\item{Bootstrapping process from ndn-pi, illustrated in Figure \ref{fig:add-child-sequence}, can be used for this process.}
+\item{Child node obtains a signed certificate from its parent}
+\item{Bootstrapping process from ndn-pi, illustrated in Figure \ref{fig:add-child-sequence}, can be used for this process}
 \end{itemize}
 \end{column}
 
@@ -225,8 +225,8 @@ Bootstrap
 We run BMS aggregation nodes in mini-ndn as an experiment.
 
 \begin{itemize}
-\item{Mini-ndn is a mininet based emulation tool that enables easy deployment and configuration of NDN nodes. \cite{minindn-github}}
-\item{Each mini-ndn node has its own forwarder, and runs as a BMS node (for example, Room b217 in Young Hall).}
+\item{Mini-ndn is a mininet based emulation tool that enables easy deployment and configuration of NDN nodes \cite{minindn-github}}
+\item{Each mini-ndn node has its own forwarder, and runs as a BMS node (for example, Room b217 in Young Hall)}
 \item{BMS nodes in mini-ndn connects to UCLA's gateway sensor data publisher, and to the testbed}
 \end{itemize}
 
