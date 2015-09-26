@@ -132,7 +132,7 @@ class BmsNode(object):
         # We should only ask for cert to be signed upon the first run of a certain aggregator
         if DO_CERT_SETUP:
             if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(self._certificateName.getPrefix(-1))):
-                # Need to configure for remote deployment.
+                # Need to configure for mini-ndn; aggregation node runs outside of mini-ndn first so that signed cert get installed and mini-ndn won't ask for this again
                 print("certificate " + self._certificateName.toUri() + " asking for signature")
                 response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + self._identityName.toUri() + '&subject_name=' + self._identityName.toUri()).read()
                 

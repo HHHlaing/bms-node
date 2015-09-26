@@ -148,7 +148,7 @@ class DataPublisher(object):
                     # We should only ask for cert to be signed upon the first run of a certain sensor
                     if DO_CERT_SETUP:
                         if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
-                            # Need to configure for remote.
+                            # Need to configure for remote gateway deployment; for now, remote uses its own branch with my public IP.
                             print("certificate " + sensorCertificateName.toUri() + " asking for signature")
                             response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
                             
