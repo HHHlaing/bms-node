@@ -146,7 +146,7 @@ class DataPublisher(object):
                     if DO_CERT_SETUP:
                         if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
                             # Need to configure for remote.
-                            response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
+                            response = urllib2.urlopen("http://128.97.152.51:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
                             
                             signedCertData = Data()
                             signedCertData.wireDecode(Blob(b64decode(response)))
