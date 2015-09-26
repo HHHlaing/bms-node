@@ -31,6 +31,8 @@ from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
 from pyndn.security.identity.identity_manager import IdentityManager
 from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
 
+import subprocess
+
 DO_CERT_SETUP = True
 
 # Syntax for Python 2, quick hack for getting everyone signed
@@ -79,6 +81,7 @@ class DataPublisher(object):
         with open(csvFileName, 'rU') as csvFile:
             reader = csv.reader(csvFile, delimiter=',', quotechar='|')
 
+            campusComponentName = "ucla"
             for row in reader:
                 if (len(row)) > 5:
                     # sensor full name, building name, room name, sensor name, sensor data type
@@ -89,14 +92,14 @@ class DataPublisher(object):
                         dataType = row[5]
                     if (row[3] != ''):
                         key = row[2].lower().strip() + '.' + row[3].lower().strip() + '.' + row[4].lower().strip()
-                        ndnNameString = row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
+                        ndnNameString = campusComponentName + '/' + row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
                         aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
                         instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
                         self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
                     else:
                         key = row[2].lower().strip() + '.' + row[4].lower().strip()
-                        ndnNameString = row[2].lower().strip() + '/' + row[4].lower().strip()
+                        ndnNameString = campusComponentName + '/' + row[2].lower().strip() + '/' + row[4].lower().strip()
                         aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
                         instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
@@ -147,11 +150,17 @@ class DataPublisher(object):
                         if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
                             # Need to configure for remote.
                             response = urllib2.urlopen("http://128.97.152.51:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
+                            print("certificate " + sensorCertificateName.toUri() + " asking for signature")
                             
                             signedCertData = Data()
                             signedCertData.wireDecode(Blob(b64decode(response)))
 
                             self._cache.add(signedCertData)
+                            cmdline = ['ndnsec-install-cert', '-']
+                            p = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                            cert, err = p.communicate(response)
+                            if p.returncode != 0:
+                                raise RuntimeError("ndnsec-install-cert error")
                         else:
                             self._cache.add(certificateData)
                     else:
