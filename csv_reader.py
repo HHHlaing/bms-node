@@ -18,7 +18,7 @@ class SensorDataDictItem(object):
 
 class UniqueNameTailer(object):
     def __init__(self):
-        self._nameDict = []
+        self._nameDict = dict()
         #self._maxCount = 200
         self._maxCount = 9999999999
 
@@ -56,7 +56,9 @@ class UniqueNameTailer(object):
         # For test code
         if not name in self._nameDict:
             #print(name)
-            self._nameDict.append(name)
+            self._nameDict[name] = 1
+        else:
+            self._nameDict[name] = self._nameDict[name] + 1
 
         return name
 
@@ -80,7 +82,7 @@ def main():
     srcCSVName = 'bms-sensor-data-types.csv'
     dstCSVName = 'bms-sensor-data-types-sanitized.csv'
     
-    sanitizeCSVFileDataType(srcCSVName, dstCSVName)
+    #sanitizeCSVFileDataType(srcCSVName, dstCSVName)
 
     nameTailer = UniqueNameTailer()
     nameTailer.readfile('ucla-datahub-Feb2.log')
@@ -120,8 +122,8 @@ def main():
     foundCnt = 0
     notFoundCnt = 0
 
-    for item in sorted(nameTailer._nameDict):
-        #print(item)
+    for item in nameTailer._nameDict:
+        print(nameTailer._nameDict[item])
         if (item in nameTailer._ndnNameDict):
             print(item + ';\t\ttype: ' + nameTailer._ndnNameDict[item]._dataType)
             foundCnt += 1
@@ -129,6 +131,9 @@ def main():
             print('Not found ' + item)
             notFoundCnt += 1
     
+    for item in sorted(nameTailer._nameDict, key = nameTailer._nameDict.get):
+        print(item + " " + str(nameTailer._nameDict[item]))
+
     print('Found Count: ' + str(foundCnt))
     print('Not found Count: ' + str(notFoundCnt))
 
@@ -139,6 +144,10 @@ def main():
 Not found neurosci_rch.121.xfmr-a.dmd : This has an extra 'space' in the source xlsx, workaround with strip
 Not found botany.chw-tsins            : We don't have this indeed in the xlsx, instead we have botany.chw-tsint, oversight?
 Not found neurosci_rch.chw-fins       : We don't have this indeed in the xlsx, instead we have neurosci_rch.chw-fins, oversight?
+'''
+
+'''
+Records count:
 '''
 
 if __name__ == '__main__':
