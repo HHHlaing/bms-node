@@ -87,10 +87,11 @@ class BmsNode(object):
 
 		self._aggregation = Aggregation()
 
-	def setConfiguration(self, fileName):
+	def setConfiguration(self, fileName, trustSchemaFile):
 		self.conf = BoostInfoParser()
 		self.conf.read(fileName)
 		self._identityName = Name(self.conf.getNodePrefix())
+		self._trustSchemaFile = trustSchemaFile
 
 	def onDataNotFound(self, prefix, interest, face, interestFilterId, filter):
 		#print('Data not found for ' + interest.getName().toUri())
@@ -102,7 +103,7 @@ class BmsNode(object):
 
 		privateKeyStorage = FilePrivateKeyStorage()
 		identityStorage = BasicIdentityStorage()
-		policyManager = ConfigPolicyManager("trust_schema.conf")
+		policyManager = ConfigPolicyManager(self._trustSchemaFile)
 
 		self._keyChain = KeyChain(IdentityManager(identityStorage, privateKeyStorage), policyManager)
 		self._certificateName = self._keyChain.createIdentityAndCertificate(self._identityName)
@@ -345,7 +346,7 @@ def usage():
 
 def main():
 	try:
-		opts, args = getopt.getopt(sys.argv[1:], "", ["conf="])
+		opts, args = getopt.getopt(sys.argv[1:], "", ["conf=", "schema="])
 	except getopt.GetoptError as err:
 		print err
 		usage()
@@ -354,21 +355,27 @@ def main():
 		print("Error: missing required conf file")
 		usage()
 		sys.exit(2)
+
+	confFile = "./confs/ucla.conf"
+	schemaFile = "trust_schema.conf"
 	for o, a in opts:
 		if o == "--conf":
-			bNode = BmsNode()
-			bNode.setConfiguration(a)
-			bNode.startPublishing()
-
-			try:
-				bNode._loop.run_forever()
-			except Exception as e:
-				print(e)
-			finally:
-				bNode.stop()
+			confFile = a
+		elif o == '--schema':
+		    schemaFile = a
 		else:
 			print("unhandled option")
 
+	bNode = BmsNode()
+	bNode.setConfiguration(confFile, schemaFile)
+	bNode.startPublishing()
+
+	try:
+		bNode._loop.run_forever()
+	except Exception as e:
+		print(e)
+	finally:
+		bNode.stop()
 main()
 
 	
