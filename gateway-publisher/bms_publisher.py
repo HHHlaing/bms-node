@@ -81,6 +81,7 @@ class DataPublisher(object):
         with open(csvFileName, 'rU') as csvFile:
             reader = csv.reader(csvFile, delimiter=',', quotechar='|')
 
+            campusComponentName = "ucla"
             for row in reader:
                 if (len(row)) > 5:
                     # sensor full name, building name, room name, sensor name, sensor data type
@@ -91,14 +92,14 @@ class DataPublisher(object):
                         dataType = row[5]
                     if (row[3] != ''):
                         key = row[2].lower().strip() + '.' + row[3].lower().strip() + '.' + row[4].lower().strip()
-                        ndnNameString = row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
+                        ndnNameString = campusComponentName + '/' + row[2].lower().strip() + '/' + row[3].lower().strip() + '/' + row[4].lower().strip()
                         aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
                         instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
                         self._sensorNDNDict[key] = SensorNDNDictItem(aggregationName, instName)
                     else:
                         key = row[2].lower().strip() + '.' + row[4].lower().strip()
-                        ndnNameString = row[2].lower().strip() + '/' + row[4].lower().strip()
+                        ndnNameString = campusComponentName + '/' + row[2].lower().strip() + '/' + row[4].lower().strip()
                         aggregationName = Name(ndnNameString).append('data').append(dataType).append('aggregation')
                         instName = Name(ndnNameString).append('data').append(dataType).append('inst')
 
@@ -148,7 +149,7 @@ class DataPublisher(object):
                     if DO_CERT_SETUP:
                         if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(sensorCertificateName.getPrefix(-1))):
                             # Need to configure for remote.
-                            print("certificate " + self._certificateName.toUri() + " asking for signature")
+                            print("certificate " + sensorCertificateName.toUri() + " asking for signature")
                             response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + sensorIdentityName.toUri() + '&subject_name=' + sensorIdentityName.toUri()).read()
                             
                             signedCertData = Data()
