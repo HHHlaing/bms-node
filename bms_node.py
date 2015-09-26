@@ -19,6 +19,8 @@ from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
 from pyndn.util.common import Common
 from pyndn.util import MemoryContentCache, Blob
 
+import subprocess
+
 try:
     import asyncio
 except ImportError:
@@ -131,12 +133,19 @@ class BmsNode(object):
         if DO_CERT_SETUP:
             if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(self._certificateName.getPrefix(-1))):
                 # Need to configure for remote deployment.
+                print("certificate " + self._certificateName + " asking for signature")
                 response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + self._identityName.toUri() + '&subject_name=' + self._identityName.toUri()).read()
                 
                 signedCertData = Data()
                 signedCertData.wireDecode(Blob(b64decode(response)))
 
                 self._memoryContentCache.add(signedCertData)
+                cmdline = ['ndnsec-install-cert', '-']
+                p = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                # desanitize + sign in GET request
+                cert, err = p.communicate(response)
+                if p.returncode != 0:
+                    raise RuntimeError("ndnsec-install-cert error")
             else:
                 self._memoryContentCache.add(certificateData)
         else:

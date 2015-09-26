@@ -31,6 +31,8 @@ from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
 from pyndn.security.identity.identity_manager import IdentityManager
 from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
 
+import subprocess
+
 DO_CERT_SETUP = True
 
 # Syntax for Python 2, quick hack for getting everyone signed
@@ -152,6 +154,11 @@ class DataPublisher(object):
                             signedCertData.wireDecode(Blob(b64decode(response)))
 
                             self._cache.add(signedCertData)
+                            cmdline = ['ndnsec-install-cert', '-']
+                            p = subprocess.Popen(cmdline, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                            cert, err = p.communicate(response)
+                            if p.returncode != 0:
+                                raise RuntimeError("ndnsec-install-cert error")
                         else:
                             self._cache.add(certificateData)
                     else:
