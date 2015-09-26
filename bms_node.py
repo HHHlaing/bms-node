@@ -133,7 +133,7 @@ class BmsNode(object):
         if DO_CERT_SETUP:
             if (KeyLocator.getFromSignature(certificateData.getSignature()).getKeyName().equals(self._certificateName.getPrefix(-1))):
                 # Need to configure for remote deployment.
-                print("certificate " + self._certificateName + " asking for signature")
+                print("certificate " + self._certificateName.toUri() + " asking for signature")
                 response = urllib2.urlopen("http://192.168.56.1:5000/bms-cert-hack?cert=" + b64encode(certificateData.wireEncode().toBuffer()) + "&cert_prefix=" + self._identityName.toUri() + '&subject_name=' + self._identityName.toUri()).read()
                 
                 signedCertData = Data()
