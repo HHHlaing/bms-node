@@ -32,7 +32,8 @@ from config_split import BoostInfoParser
 
 # Program constants
 DEFAULT_INTEREST_LIFETIME = 2000
-DEFAULT_DATA_LIFETIME = 2000000
+# Aggregation data fresh for an entire day
+DEFAULT_DATA_LIFETIME = 24 * 36000000
 
 # Namespace constants
 DATA_COMPONENT = "data"
