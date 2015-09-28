@@ -1,6 +1,7 @@
 var consumer;
 
 var startTimeOffset = 0;
+var graphStartTime = 0;
 var fetchDict;
 
 $(document).ready(function(){
@@ -31,7 +32,7 @@ function startConsumer()
                   {"spaceName": "ucla/schoenberg", "dataType": "SteamFlow", "aggregationType": "avg", "timeSeries": new TimeSeries()},
                 "/ndn/edu/ucla/remap/bms/ucla/schoenberg/b420":
                   {"spaceName": "ucla/schoenberg/b420", "dataType": "SteamFlow", "aggregationType": "avg", "timeSeries": new TimeSeries()},
-                "/ndn/edu/ucla/remap/bms/ucla/factor/":
+                "/ndn/edu/ucla/remap/bms/ucla/factor":
                   {"spaceName": "ucla/factor", "dataType": "SteamFlow", "aggregationType": "avg", "timeSeries": new TimeSeries()},
                 "/ndn/edu/ucla/remap/bms/ucla/factor/a-937a":
                   {"spaceName": "ucla/factor/a-937a", "dataType": "SteamFlow", "aggregationType": "avg", "timeSeries": new TimeSeries()}
@@ -40,7 +41,7 @@ function startConsumer()
   for (var item in fetchDict) {
     consumer.startFetchSpace(fetchDict[item].spaceName, fetchDict[item].dataType, fetchDict[item].aggregationType);
 
-    var chart = new SmoothieChart();
+    var chart = new SmoothieChart({timestampFormatter:SmoothieChart.timeFormatter});
     chart.addTimeSeries(fetchDict[item].timeSeries, { strokeStyle: 'rgba(0, 255, 0, 1)', fillStyle: 'rgba(0, 255, 0, 0.2)', lineWidth: 4 });
     chart.streamTo(document.getElementById(fetchDict[item].spaceName), 500);
   }
@@ -50,9 +51,8 @@ function displayCallback(dataName, dataType, aggregationType, startTime, endTime
 {
   if (startTimeOffset === 0) {
     startTimeOffset = startTime;
+    graphStartTime = new Date().getTime();
   }
   console.log("Callback called with " + dataName + " " + dataType + " " + aggregationType + " " + startTime.toString() + " " + endTime.toString());
-  // Randomly add a data point every 500ms
-  
-  fetchDict[dataName].timeSeries.append((new Date().getTime()) + (startTime - startTimeOffset), parseFloat(dataContent));
+  fetchDict[dataName].timeSeries.append(graphStartTime + (startTime - startTimeOffset), parseFloat(dataContent));
 }

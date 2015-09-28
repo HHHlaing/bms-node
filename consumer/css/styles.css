@@ -125,10 +125,6 @@ html, body {
 /**
 commenting and feed of comments
  */
-#saysomethinggood {
- width:80%;       
-}
-  
 .comment {
     position: relative;
     left: 30px;
@@ -149,12 +145,12 @@ commenting and feed of comments
 .comment p span {
     font-weight: 600; 
 }
-   
-@media screen and (max-width: 1030px) {
- 
-#saysomethinggood {
- width:90%;    
+
+.chart-block {
+  margin: 3px;
 }
+
+@media screen and (max-width: 1030px) {
     
 #enter-message {
       position: fixed;
@@ -164,8 +160,7 @@ commenting and feed of comments
       bottom: 0px;
       padding-bottom: 40px;
       z-index: 900;
-    }    
-    
+    }
 
 .comment {
     position: relative;
@@ -176,14 +171,8 @@ commenting and feed of comments
     padding: 10px;
     margin-bottom: 150px;
     background: white; 
-        }
-
-
-
-
+  }
 }
-
-
 
 .demo-drawer {
    z-index: 999;   
@@ -193,23 +182,15 @@ commenting and feed of comments
       z-index: 990; 
 }
 
-
-
-
-
 /**
 menu and header
  */
-
-
-
 
 #dir-title {
   font-size: 15px;    
   text-decoration: underline;    
   font-weight: 300; 
 }
-
 
 #chan-title {
   font-size: 15px;
@@ -227,13 +208,10 @@ menu and header
  color: white;
 }
 
-
 .selected {
   background-color:#00BCD4;
   font-weight: 300; 
 }
-
-
 
 .selected:hover {
   background-color:#00BCD4;

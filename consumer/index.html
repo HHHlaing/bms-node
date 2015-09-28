@@ -22,7 +22,7 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="description" content="NDN Chat">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>NDN Chat</title>
+    <title>NDN BMS browser consumer concept</title>
 
     <!-- Add to homescreen for Chrome on Android -->
     <meta name="mobile-web-app-capable" content="yes">
@@ -51,7 +51,7 @@
     <div class="demo-layout mdl-layout mdl-js-layout mdl-layout--fixed-drawer mdl-layout--fixed-header">
       <header class="demo-header mdl-layout__header mdl-color--white mdl-color--grey-100 mdl-color-text--grey-600">
         <div class="mdl-layout__header-row">
-          <span class="mdl-layout-title">UCLA Building Automation Management System</span>
+          <span class="mdl-layout-title">UCLA BMS Browser Consumer Concept (Steam flow data from Feb 4 ~ 6, 2015)</span>
           <div class="mdl-layout-spacer"></div>
         
             <div class="mdl-textfield mdl-js-textfield mdl-textfield--expandable">
@@ -104,12 +104,37 @@
       </div>
     
       <main class="mdl-layout__content">
-        <div class = "comment">
-          <canvas id="ucla/schoenberg/b420" width="400" height="250"></canvas>
-          <canvas id="ucla/schoenberg" width="400" height="250"></canvas>
-          <canvas id="ucla/factor/a-937a" width="400" height="250"></canvas>
-          <canvas id="ucla/factor" width="400" height="250"></canvas>
-          <canvas id="ucla" width="400" height="250"></canvas>
+        <div class="comment">
+          <div class="chart-block">
+            <span>UCLA - Schoenberg - B420 - stm.flw (Steam flow)</span><br>
+            <span>Steam flow</span>
+            <canvas id="ucla/schoenberg/b420" width="400" height="150"></canvas><br>
+            <span style="text-align: center; display: block; width: 450px;">Time</span>
+          </div>
+          <div class="chart-block">
+            <span>UCLA - Schoenberg - stm.flw (Steam flow)</span><br>
+            <span>Steam flow</span>
+            <canvas id="ucla/schoenberg" width="400" height="150"></canvas>
+            <span style="text-align: center; display: block; width: 450px;">Time</span>
+          </div>
+          <div class="chart-block">
+            <span>UCLA - Factor - a-937.a - stm.flw (Steam flow)</span><br>
+            <span>Steam flow</span>
+            <canvas id="ucla/factor/a-937a" width="400" height="150"></canvas>
+            <span style="text-align: center; display: block; width: 450px;">Time</span>
+          </div>
+          <div class="chart-block">
+            <span>UCLA - Factor - stm.flw (Steam flow)</span><br>
+            <span>Steam flow</span>
+            <canvas id="ucla/factor" width="400" height="150"></canvas>
+            <span style="text-align: center; display: block; width: 450px;">Time</span>
+          </div>
+          <div class="chart-block">
+            <span>UCLA</span><br>
+            <span>Steam flow</span>
+            <canvas id="ucla" width="400" height="150"></canvas>
+            <span style="text-align: center; display: block; width: 450px;">Time</span>
+          </div>
         </div>
       </main>
     </div>
