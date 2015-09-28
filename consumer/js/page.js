@@ -5,7 +5,7 @@ var graphStartTime = 0;
 var fetchDict;
 
 $(document).ready(function(){
-  var face = new Face("localhost");
+  var face = new Face({host:"localhost"});
   var prefix = "/ndn/edu/ucla/remap/bms";
 
   var identityStorage = new IndexedDbIdentityStorage();
