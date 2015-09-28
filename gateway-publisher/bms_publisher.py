@@ -73,7 +73,7 @@ class DataPublisher(object):
         self._loop = loop
         self._cache = cache
         self._namespace = namespace
-        self.DEFAULT_DATA_LIFETIME = 2000000
+        self.DEFAULT_DATA_LIFETIME = 24 * 3600000
 
         self._sensorNDNDict = dict()
 
