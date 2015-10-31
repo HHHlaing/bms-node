@@ -58,3 +58,6 @@ target/
 
 # Mac OS Folder
 .DS_Store
+
+# OmniGraffle Source Files
+*.graffle
