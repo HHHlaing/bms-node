@@ -16,7 +16,7 @@ Components
   * Publisher uses the result of csv\_reader.py to decide the mapping from sensor data entries to NDN names. csv\_reader.py reads bms-sensor-data-types-sanitized.csv to generate te mapping.
 * BMS node: bms_node.py
   * BMS node reads a configuration file to decide its node name, which types of data this node should ask for, and what aggregated data this node should produce.
-  * BMS node uses config\_split.py to parse the configuration file. Example configuration files are given in confs folder.
+  * BMS node uses config\_split.py to parse the configuration file. [Example configuration](https://github.com/zhehaowang/bms-node/blob/master/confs/example.conf) files are given in confs folder.
 * BMS consumer: consumer/index.html
   * An in-browser NDN consumer and visualizer of the produced aggregated data.
 * [BMS certification service](https://github.com/zhehaowang/openmhealth-cert/tree/bms-cert-hack): a quick hack of a BMS certificate issuing web service, so that the aggregation nodes and gateway publisher can have their certificates signed by BMS's root of trust. This service signs any certificates received. Consumer would then be able to verify the BMS data with the correct root of trust installed in certs/anchor.cert. This site is based on [ndncert](https://github.com/named-data/ndncert).
@@ -47,7 +47,7 @@ How to use
 <pre>
   python gateway-publisher/bms_publisher.py ucla-datahub.log
 </pre>
-* Option 1: start bms nodes in a customized mini-ndn:
+* Option 1: start bms nodes from a [customized mini-ndn fork](https://github.com/zhehaowang/mini-ndn):
   * Install mini-ndn (this customized fork of mini-ndn contains a bms experiment, and static routes configurable from a file); See the readme [here](https://github.com/named-data/mini-ndn/blob/master/INSTALL.md) for mini-ndn's complete installation instructions.
 <pre>
   git clone https://github.com/zhehaowang/mini-ndn
@@ -62,10 +62,10 @@ How to use
 
 * Option 2: run individual bms node from command line
 <pre>
-  python bms_node.py --conf=<configuration file path>
+  python bms_node.py --conf=\<configuration file\>
 </pre>
 
-* Start consumer: open consumer/index.html in a browser
+* Start consumer: open consumer/index.html in a browser. Configure the consumer data names [here](https://github.com/zhehaowang/bms-node/blob/master/consumer/js/page.js#L28-L39).
 
 * Configure routes: interest from bms nodes should be able to get to the gateway publisher, or its child nodes. Interest from the consumer should be able to get to the nodes that publish the expected aggregations.
 
