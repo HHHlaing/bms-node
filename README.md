@@ -33,12 +33,11 @@ How to use
   python ndncert-server.py
 </pre>
   * Running the certification service requires Python Flask and MongoDB installed. In MongoDB there should be a "ndncert" database, with at least one entry in "operators" table that looks like the following. The prefix's corresponding public/private key should also be available in the system
-```
+<pre>
   { "_id" : "0", "site_prefix" : "/org/openmhealth", "site_name" : "dummy", "email" : "wangzhehao410305@gmail.com", "name" : "zhehao" }
-```
+</pre>
   * After the certification service's running, you may need to change the hardcoded address [here](https://github.com/zhehaowang/bms-node/blob/1ab0285c4a0d739514b429380d076f494b98660e/bms_node.py#L138) and [here](https://github.com/zhehaowang/bms-node/blob/1ab0285c4a0d739514b429380d076f494b98660e/gateway-publisher/bms_publisher.py#L153)
   * Dump the certificate that corresponds to the site\_prefix, and copy the certificate to [this file](https://github.com/zhehaowang/bms-node/blob/master/certs/anchor.cert), so that it becomes your root of trust
-"
 * Start gateway publisher
   * To follow (tail -f) a file:
 <pre>
