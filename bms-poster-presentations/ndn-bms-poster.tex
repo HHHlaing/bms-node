@@ -2,7 +2,7 @@
 %	PACKAGES AND OTHER DOCUMENT CONFIGURATIONS
 %----------------------------------------------------------------------------------------
 
-\documentclass[final,hyperref={pdfpagelabels=false},20pt]{beamer}
+\documentclass[final,hyperref={pdfpagelabels=false},16pt]{beamer}
 
 % \documentclass[20pt]{beamer}
 
@@ -84,12 +84,10 @@ This summer's work focuses on the data aggregation and signing/verification in N
 
 \begin{block}{Objectives}
 
-\begin{itemize}
-\item{Provide campus, building, and department-level monitoring and query possibility}
+Provide campus, building, and department-level monitoring and query possibility
 \begin{itemize}
 \item{Design a hierarchical storage approach and a stream-based approach to calculating aggregates, distributing processing and taking advantage of local storage.}
 \item{Data signing and verification}
-\end{itemize}
 \end{itemize}
 
 % Quoted from summer opening slides by Wentao and Jeff
@@ -117,6 +115,11 @@ Figure \ref{fig:namespace} illustrates the namespace of the BMS application;
 \item{Name components in ``campus'' branch represent the hierarchical structure of BMS data, organized as Campus - Building - Room - Device}
 \item{``User'' branch records the list of BMS user identities, which can be used for access control}
 \end{itemize}
+
+\vspace{10mm}
+
+Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data.
+
 \end{column}
 
 \begin{column}{.55\textwidth}
@@ -128,10 +131,6 @@ Figure \ref{fig:namespace} illustrates the namespace of the BMS application;
 \end{column}
 
 \end{columns}
-
-\vspace{15mm}
-
-Figure \ref{fig:example-name} illustrates an example name of a piece of BMS data.
 
 \end{block}
 
@@ -194,7 +193,7 @@ Bootstrap
 
 \begin{columns}[T]
 
-\begin{column}{.35\textwidth}
+\begin{column}{.40\textwidth}
 
 \begin{itemize}
 \item{Child node obtains a signed certificate from its parent}
@@ -202,7 +201,7 @@ Bootstrap
 \end{itemize}
 \end{column}
 
-\begin{column}{.65\textwidth}
+\begin{column}{.60\textwidth}
 \begin{figure}
 \includegraphics[width=\linewidth]{bms-add-child-sequence}
 \caption{BMS add child sequence}
