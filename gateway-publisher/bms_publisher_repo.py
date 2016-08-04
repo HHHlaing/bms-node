@@ -22,7 +22,7 @@ except ImportError:
     import trollius as asyncio
     from concurrent.futures import ProcessPoolExecutor
 
-from pyndn import Name, Data, KeyLocator
+from pyndn import Name, Data, KeyLocator, Interest
 from pyndn.threadsafe_face import ThreadsafeFace
 from pyndn.util.memory_content_cache import MemoryContentCache
 from pyndn.util import Blob
@@ -209,7 +209,7 @@ class DataPublisher(object):
                 # Add the Name.
                 for i in range(dataTemp.getName().size()):
                     parameter.repo_command_parameter.name.component.append(
-                      dataTemp.getName(i).toEscapedString())
+                      dataTemp.getName().get(i).toEscapedString())
                 
                 # Create the command interest.
                 commandInterest = Interest(Name(repoCommandPrefix).append("insert")
@@ -235,14 +235,14 @@ class DataPublisher(object):
                     if __debug__:
                         print("Insert repo command timeout")
                     
-                face.expressInterest(commandInterest, onRepoCommandResponse, onRepoCommandTimeout)
+                self._face.expressInterest(commandInterest, onRepoCommandResponse, onRepoCommandTimeout)
 
 
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
 
     def createData(self, namePrefix, timestamp, payload, certName):
-        data = Data(Name(self._namespace).append(namePrefix).append(str(timestamp * 1000)))
+        data = Data(Name(self._namespace).append(namePrefix).append(str(int(float(timestamp)))))
         data.setContent(payload)
         self._keyChain.sign(data, certName)
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
