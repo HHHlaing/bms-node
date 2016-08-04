@@ -33,7 +33,7 @@ from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
 
 import subprocess
 
-DO_CERT_SETUP = True
+DO_CERT_SETUP = False
 
 # Syntax for Python 2, quick hack for getting everyone signed
 if DO_CERT_SETUP:                    
