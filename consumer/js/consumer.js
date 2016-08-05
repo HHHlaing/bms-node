@@ -24,15 +24,15 @@ Consumer.prototype.startFetchSpace = function(spaceName, dataType, aggregationTy
 {
   var interest = new Interest((new Name(this.prefix)).append(new Name(spaceName)));
   if (dataType === undefined) {
-    throw "start fetch with undefined data type is not yet imeplemented!";
+    throw "start fetch with undefined data type is not yet implemented!";
   } else if (dataType === '') {
     // TODO: make sure this is indeed the name for unlisted data type
     dataType = "unknown";
   }
   if (aggregationType === undefined || aggregationType === '') {
-    throw "start fetch with instant data name is not yet imeplemented!";
+    interest.getName().append("data");
   } else {
-    interest.getName().append("data").append(dataType).append("aggregation").append(aggregationType)
+    interest.getName().append("data").append(dataType).append("aggregation").append(aggregationType);
   }
   if (startTime !== undefined) {
     throw "start fetch with specific timestamp is not implemented!";
@@ -62,11 +62,6 @@ Consumer.prototype.onData = function(interest, data)
   var dataName = data.getName();
   console.log(dataName.toUri() + " " + data.getContent().buf().toString('binary'));
   
-  // right now we only do interest expression with exclusion filter for timestamp
-  var exclude = new Exclude();
-  exclude.appendAny();
-  exclude.appendComponent();
-
   var dataType = "";
   var aggregationType = "";
   var startTime = 0;
@@ -83,7 +78,8 @@ Consumer.prototype.onData = function(interest, data)
     }
   }
 
-  if (dataType !== "" && aggregationType !== "" && startTime !== 0 && endTime !== 0) {
+  if (aggregationType !== "" && dataType !== "" && startTime !== 0 && endTime !== 0) {
+    // aggregation data
     this.displayCallback(dataName.getPrefix(i - 2).toUri(), dataType, aggregationType, startTime, endTime, data.getContent().buf().toString('binary'));
 
     var newInterestName = dataName.getPrefix(i + 2);
@@ -91,17 +87,29 @@ Consumer.prototype.onData = function(interest, data)
     newInterest.setName(newInterestName);
     newInterest.setChildSelector(0);
 
-    exclude = new Exclude();
+    var exclude = new Exclude();
     exclude.appendAny();
     exclude.appendComponent(dataName.get(i + 2));
     newInterest.setExclude(exclude);
 
     this.face.expressInterest(newInterest, this.onData.bind(this), this.onTimeout.bind(this));
   } else {
-    console.log("dataType, aggregationType, startTime, or endTime missing from data name.");
+    // raw data
+    var newInterestName = new Name(data.getName()).getPrefix(-1);
+    var newInterest = new Interest(interest);
+    newInterest.setName(newInterestName);
+    newInterest.setChildSelector(0);
+
+    var exclude = new Exclude();
+    exclude.appendAny();
+    exclude.appendComponent(data.getName().get(-1));
+    newInterest.setExclude(exclude);
+    newInterest.refreshNonce();
+
+    this.face.expressInterest(newInterest, this.onData.bind(this), this.onTimeout.bind(this));
   }
 
-  return
+  return;
 };
 
 Consumer.prototype.onTimeout = function(interest)
