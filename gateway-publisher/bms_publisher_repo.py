@@ -1,3 +1,5 @@
+# repo publisher for raw sensor data; updated Aug 4 for making UCLA raw sensor data available on testbed
+
 import tailer 
 import parse 
 import argparse
@@ -20,16 +22,20 @@ except ImportError:
     import trollius as asyncio
     from concurrent.futures import ProcessPoolExecutor
 
-from pyndn import Name, Data, KeyLocator
+from pyndn import Name, Data, KeyLocator, Interest
 from pyndn.threadsafe_face import ThreadsafeFace
 from pyndn.util.memory_content_cache import MemoryContentCache
 from pyndn.util import Blob
+from pyndn.encoding import ProtobufTlv
 
 from pyndn.security import KeyChain
 from pyndn.security.identity.file_private_key_storage import FilePrivateKeyStorage
 from pyndn.security.identity.basic_identity_storage import BasicIdentityStorage
 from pyndn.security.identity.identity_manager import IdentityManager
 from pyndn.security.policy.config_policy_manager import ConfigPolicyManager
+
+import repo_command_parameter_pb2
+import repo_command_response_pb2
 
 import subprocess
 
@@ -39,6 +45,7 @@ DO_CERT_SETUP = False
 if DO_CERT_SETUP:                    
     import urllib2
 
+repoCommandPrefix = Name("/repo/command")
 
 # Value of dictionary _sensorNDNDict
 #       key:    string, string name of sensor from given csv and received sensor data JSON
@@ -191,17 +198,51 @@ class DataPublisher(object):
                 # Then publish raw data
                 # Timestamp in data name uses the timestamp from data payload
                 instDataPrefix = self.pointNameToNDNName(sensorName, False)
-                dataTemp = self.createData(instDataPrefix, dataDict["timestamp"], dataDict["value"], self._dataQueue[sensorName]._certificateName)
+                dataTemp = self.createData(instDataPrefix, dataDict["timestamp"], json.dumps(dataDict), self._dataQueue[sensorName]._certificateName)
                 if __debug__:
                     print("Produced raw data name " + dataTemp.getName().toUri())
                     print("Produced raw data content " + dataTemp.getContent().toRawStr())
                 self._cache.add(dataTemp)
 
+                # For now we only insert raw data into repo
+                parameter = repo_command_parameter_pb2.RepoCommandParameterMessage()
+                # Add the Name.
+                for i in range(dataTemp.getName().size()):
+                    parameter.repo_command_parameter.name.component.append(
+                      dataTemp.getName().get(i).toEscapedString())
+                
+                # Create the command interest.
+                commandInterest = Interest(Name(repoCommandPrefix).append("insert")
+                  .append(Name.Component(ProtobufTlv.encode(parameter))))
+                self._face.makeCommandInterest(commandInterest)
+
+                # Send the command interest and get the response or timeout.
+                def onRepoCommandResponse(interest, data):
+                    # repo_command_response_pb2 was produced by protoc.
+                    response = repo_command_response_pb2.RepoCommandResponseMessage()
+                    try:
+                        ProtobufTlv.decode(response, data.content)
+                    except:
+                        print("Cannot decode the repo command response")
+                        
+                    if response.repo_command_response.status_code == 100:
+                        if __debug__:
+                            print("Insertion started")
+                    else:
+                        print("Got repo command error code", response.repo_command_response.status_code)
+                        
+                def onRepoCommandTimeout(interest):
+                    if __debug__:
+                        print("Insert repo command timeout")
+                    
+                self._face.expressInterest(commandInterest, onRepoCommandResponse, onRepoCommandTimeout)
+
+
             except Exception as detail:
                 print("publish: Error calling createData for", line, "-", detail)
 
     def createData(self, namePrefix, timestamp, payload, certName):
-        data = Data(Name(self._namespace).append(namePrefix).append(str(timestamp)))
+        data = Data(Name(self._namespace).append(namePrefix).append(str(int(float(timestamp)))))
         data.setContent(payload)
         self._keyChain.sign(data, certName)
         data.getMetaInfo().setFreshnessPeriod(self.DEFAULT_DATA_LIFETIME)
