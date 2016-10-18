@@ -16,6 +16,10 @@ import select
 
 import csv
 
+import os
+import sys
+import urllib
+
 try:
     import asyncio
 except ImportError:
@@ -62,6 +66,9 @@ class DataQueueItem(object):
         self._timeThreshold = timeThreshold
         self._identityName = identityName
         self._certificateName = certificateName
+
+        self._restartInterval = 60
+        self._lastDataTimestamp = time.time()
 
 class DataPublisher(object):
     def __init__(self, face, keyChain, loop, cache, namespace):
@@ -130,6 +137,7 @@ class DataPublisher(object):
         sensorName = point[0]
         aggregationNamePrefix = self.pointNameToNDNName(sensorName)
         dataDict = self.pointToJSON(point)
+        self._lastDataTimestamp = time.time()
         
         if aggregationNamePrefix is not None:
             #if __debug__:
@@ -303,6 +311,36 @@ class DataPublisher(object):
             self.publish(line)
             yield None
         f.close()
+
+    def checkAlive(self):
+        print("Calling checkAlive")
+        currentTime = time.time()
+        # Check for nfd-status of remote nfd
+        link = "128.97.98.7"
+        f = urllib.urlopen(link)
+        nfdStatus = f.read()
+        if nfdStatus.find("128.97.98.13") > 0 and nfdStatus.find("/ndn/edu/ucla/remap/bms") > 0:
+            print("Route still in place")
+        else:
+            print("Route's gone, trying register")
+            os.system("remote-register-prefix -p /ndn/edu/ucla/remap/bms -f tcp4://128.97.98.7:6363 -i /ndn/edu/ucla/remap/zhehao")
+
+        # Check for if restart needed
+        if currentTime - self._lastDataTimestamp > self._restartInterval:
+            print("Haven't received data in some time, restart stunnel and datahub")
+            os.system("pkill nserve")
+            os.system("pkill qserve")
+            os.system("pkill datahub")
+            os.system("pkill stunnel4")
+            os.system("/etc/init.d/stunnel4 restart")
+
+            os.system("datahub -f /home/remap/ucla-datahub.cfg")
+            os.system("datahub -f /home/remap/ucla-datahub.cfg")
+            
+            # We don't have to restart this script itself
+            #os.execl(sys.executable, *([sys.executable] + sys.argv))
+        else:
+            self._loop.call_later(self._restartInterval, self.checkAlive)
         
     @asyncio.coroutine
     def followfile(self, filename):
@@ -382,6 +420,7 @@ def main():
     # Parse csv to decide the mapping between sensor JSON -> <NDN name, data type>
     dataPublisher.populateSensorNDNDictFromCSV('bms-sensor-data-types-sanitized.csv')
 
+    loop.call_later(dataPublisher._defaultInterval, dataPublisher.checkAlive)
     if args.follow: 
         #asyncio.async(loop.run_in_executor(executor, followfile, args.filename, args.namespace, cache))
         loop.run_until_complete(dataPublisher.followfile(args.filename))
