@@ -67,7 +67,6 @@ class DataQueueItem(object):
         self._identityName = identityName
         self._certificateName = certificateName
 
-        self._restartInterval = 60
         self._lastDataTimestamp = time.time()
 
 class DataPublisher(object):
@@ -75,6 +74,7 @@ class DataPublisher(object):
         # Start time of this instance
         self._startTime = 0
         # Default aggregation interval in seconds
+        self._restartInterval = 60
         self._defaultInterval = 10000
         # Dictionary that holds the temporary data to calculate aggregation with
         # Key   - sensor name
