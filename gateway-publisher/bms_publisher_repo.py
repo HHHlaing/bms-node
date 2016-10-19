@@ -316,7 +316,7 @@ class DataPublisher(object):
         print("Calling checkAlive")
         currentTime = time.time()
         # Check for nfd-status of remote nfd
-        link = "128.97.98.7"
+        link = "http://128.97.98.7"
         f = urllib.urlopen(link)
         nfdStatus = f.read()
         if nfdStatus.find("128.97.98.13") > 0 and nfdStatus.find("/ndn/edu/ucla/remap/bms") > 0:
