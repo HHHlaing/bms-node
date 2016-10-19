@@ -420,7 +420,7 @@ def main():
     # Parse csv to decide the mapping between sensor JSON -> <NDN name, data type>
     dataPublisher.populateSensorNDNDictFromCSV('bms-sensor-data-types-sanitized.csv')
 
-    loop.call_later(dataPublisher._defaultInterval, dataPublisher.checkAlive)
+    loop.call_later(dataPublisher._restartInterval, dataPublisher.checkAlive)
     if args.follow: 
         #asyncio.async(loop.run_in_executor(executor, followfile, args.filename, args.namespace, cache))
         loop.run_until_complete(dataPublisher.followfile(args.filename))
