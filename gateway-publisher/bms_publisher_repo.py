@@ -339,8 +339,8 @@ class DataPublisher(object):
             
             # We don't have to restart this script itself
             #os.execl(sys.executable, *([sys.executable] + sys.argv))
-        else:
-            self._loop.call_later(self._restartInterval, self.checkAlive)
+        
+        self._loop.call_later(self._restartInterval, self.checkAlive)
         
     @asyncio.coroutine
     def followfile(self, filename):
