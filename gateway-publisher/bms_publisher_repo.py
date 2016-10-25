@@ -67,8 +67,6 @@ class DataQueueItem(object):
         self._identityName = identityName
         self._certificateName = certificateName
 
-        self._lastDataTimestamp = time.time()
-
 class DataPublisher(object):
     def __init__(self, face, keyChain, loop, cache, namespace):
         # Start time of this instance
@@ -88,6 +86,7 @@ class DataPublisher(object):
         self._cache = cache
         self._namespace = namespace
         self.DEFAULT_DATA_LIFETIME = 24 * 3600000
+        self._lastDataTimestamp = time.time()
 
         self._sensorNDNDict = dict()
 
@@ -339,7 +338,7 @@ class DataPublisher(object):
             
             # We don't have to restart this script itself
             #os.execl(sys.executable, *([sys.executable] + sys.argv))
-        
+
         self._loop.call_later(self._restartInterval, self.checkAlive)
         
     @asyncio.coroutine
