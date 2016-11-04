@@ -358,7 +358,7 @@ class DataPublisher(object):
         #    publish(line, namespace, cache)
 
     def onRegisterFailed(self, prefix):
-        print("register failed for " + prefix.getName().toUri())
+        print("register failed for " + prefix.toUri())
         raise RuntimeError("Register failed for prefix", prefix.toUri())
 
     def onDataNotFound(self, prefix, interest, face, interestFilterId, filter):
