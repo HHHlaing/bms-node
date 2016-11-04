@@ -409,8 +409,9 @@ def main():
 
     keyChain = KeyChain(IdentityManager(BasicIdentityStorage(), FilePrivateKeyStorage()))
     # For the gateway publisher, we create one identity for it to sign nfd command interests
-    certificateName = keyChain.createIdentityAndCertificate(Name("/ndn/bms/gateway-publisher"))
-    face.setCommandSigningInfo(keyChain, certificateName)
+    #certificateName = keyChain.createIdentityAndCertificate(Name("/ndn/bms/gateway-publisher"))
+    face.setCommandSigningInfo(keyChain, keyChain.getDefaultCertificateName())
+    print "Using certificate name " + keyChain.getDefaultCertificateName().toUri()
     cache = MemoryContentCache(face)
 
     dataPublisher = DataPublisher(face, keyChain, loop, cache, args.namespace)
