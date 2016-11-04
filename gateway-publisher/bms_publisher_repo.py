@@ -405,7 +405,7 @@ def main():
 
     # Face, KeyChain, memoryContentCache and asio event loop initialization
     loop = asyncio.get_event_loop()
-    face = ThreadsafeFace(loop)
+    face = ThreadsafeFace(loop, "128.97.98.7")
 
     keyChain = KeyChain(IdentityManager(BasicIdentityStorage(), FilePrivateKeyStorage()))
     # For the gateway publisher, we create one identity for it to sign nfd command interests
