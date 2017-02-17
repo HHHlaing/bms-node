@@ -143,7 +143,7 @@ class DataPublisher(object):
                     sensorCertificateName = self._keyChain.createIdentityAndCertificate(sensorIdentityName)
                     if __debug__:
                         print("Sensor identity name: " + sensorIdentityName.toUri())
-                    certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName, True)
+                    certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(sensorCertificateName)
 
                     # We should only ask for cert to be signed upon the first run of a certain sensor
                     if DO_CERT_SETUP:
