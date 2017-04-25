@@ -119,7 +119,7 @@ class BmsNode(object):
 
         print("My Identity name: " + self._identityName.toUri())
         print("My certificate name: " + self._certificateName.toUri())
-        certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(self._certificateName, True)
+        certificateData = self._keyChain.getIdentityManager()._identityStorage.getCertificate(self._certificateName)
         print("My certificate string: " + b64encode(certificateData.wireEncode().toBuffer()))
         # self._keyChain.getIdentityCertificate(self._certificateName).)
 
